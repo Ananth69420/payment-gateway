@@ -26,7 +26,7 @@ export default function Dashboard() {
     const fetchMyBanks = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/my-banks', {
+        const response = await fetch('http://localhost:5000/api/v1/banks', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,

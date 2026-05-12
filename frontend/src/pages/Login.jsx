@@ -12,7 +12,7 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/banks/user/login', {
+      const response = await fetch('http://localhost:5000/api/v1/user/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -26,7 +26,7 @@ export default function Login() {
       //Jwt
       localStorage.setItem('bank_auth_token', data.token);
 
-      navigate('/dashboard');
+      navigate('/home');
 
     } catch (err) {
       setError(err.message);
