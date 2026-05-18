@@ -128,17 +128,12 @@ export default function Login() {
 
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-white/10 mt-10">
             <p className="text-base md:text-lg leading-7 md:leading-8 text-gray-200">
-              Securely access your accounts, track transactions,
-              and manage your finances in one place.
+              Check your balances, see who you paid last night, and send cash instantly.
             </p>
 
             <div className="mt-6">
               <p className="font-semibold">
                 Logging into adulthood since 2026.
-              </p>
-
-              <p className="text-sm text-gray-400 mt-1">
-                Fast • Secure • Reliable
               </p>
             </div>
           </div>

@@ -73,15 +73,11 @@ export default function Register() {
 
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-white/10 mt-10">
             <p className="text-base md:text-lg leading-7 md:leading-8 text-gray-200">
-              Manage payments, transfers, UPI services, and banking
-              operations all from one secure platform.
+              Link any bank account and send money to anyone in seconds. No hassle, no hidden fees.
             </p>
 
             <div className="mt-6">
-              <p className="font-semibold">From UPI to bank accounts, we handle the chaos.</p>
-              <p className="text-sm text-gray-400 mt-1">
-                Fast • Secure • Reliable
-              </p>
+              <p className="font-semibold">Your money, moved your way.</p>
             </div>
           </div>
         </div>

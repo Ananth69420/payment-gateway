@@ -7,6 +7,9 @@ export default function Upi() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [recentPeople, setRecentPeople] = useState([]);
+  const [allTransactions, setAllTransactions] = useState([]);
+  const [activeContact, setActiveContact] = useState(null);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [receiverUpiId, setReceiverUpiId] = useState('');
   const [amount, setAmount] = useState('');
@@ -38,22 +41,62 @@ export default function Upi() {
     const fetchAccounts = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE_URL}/api/v1/account`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || 'Failed to fetch accounts');
+        let activeAccounts = [];
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/v1/account`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (res.ok) {
+            activeAccounts = data.accounts || [];
+          }
+        } catch (e) {
         }
 
-        let activeAccounts = data.accounts || [];
+        const savedLocal = localStorage.getItem('local_accounts') || '[]';
+        const localAccounts = JSON.parse(savedLocal);
+
+        let apiTransactions = [];
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/v1/upi/transactions`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (res.ok) {
+            apiTransactions = data.transactions || [];
+          }
+        } catch (e) {
+        }
+
+        const savedTxs = localStorage.getItem('local_transactions') || '[]';
+        const localTransactions = JSON.parse(savedTxs);
+        const combinedTxs = [...localTransactions, ...apiTransactions];
+        setAllTransactions(combinedTxs);
+        
+        const uniqueRecipients = [];
+        const checkedUpiIds = new Set();
+        
+        for (const tx of combinedTxs) {
+          if (tx.receiverUpiId && !checkedUpiIds.has(tx.receiverUpiId)) {
+            checkedUpiIds.add(tx.receiverUpiId);
+            const namePart = tx.receiverUpiId.split('@')[0];
+            const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+            uniqueRecipients.push({
+              upiId: tx.receiverUpiId,
+              name: displayName,
+              initial: displayName.charAt(0).toUpperCase()
+            });
+          }
+          if (uniqueRecipients.length >= 8) break;
+        }
+        setRecentPeople(uniqueRecipients);
+
         const savedAdjustments = localStorage.getItem('balance_adjustments') || '{}';
         const adjustments = JSON.parse(savedAdjustments);
         const username = localStorage.getItem('bank_username') || 'user';
         const upiSuffixes = { 1: "okhdfcbank", 2: "oksbi", 3: "okicici", 4: "okaxis", 5: "okprobably" };
 
-        activeAccounts = activeAccounts.map(acc => {
+        const mappedApi = activeAccounts.map(acc => {
           const suffix = upiSuffixes[acc.bankId] || "okbank";
           const adjustedBalance = acc.balance - (adjustments[acc.accountId] || 0);
           return {
@@ -63,10 +106,22 @@ export default function Upi() {
           };
         });
 
-        setAccounts(activeAccounts);
+        const mappedLocal = localAccounts.map(acc => {
+          const adjustedBalance = acc.balance - (adjustments[acc.accountId] || 0);
+          return {
+            ...acc,
+            accountId: acc.accountId,
+            balance: adjustedBalance,
+            upiId: acc.upiId
+          };
+        });
+        
+        const mergedAccounts = [...mappedApi, ...mappedLocal];
 
-        if (activeAccounts.length > 0) {
-          setSelectedAccountId(activeAccounts[0].accountId.toString());
+        setAccounts(mergedAccounts);
+
+        if (mergedAccounts.length > 0) {
+          setSelectedAccountId(mergedAccounts[0].accountId.toString());
         }
       } catch (err) {
         setError(err.message);
@@ -77,6 +132,13 @@ export default function Upi() {
 
     fetchAccounts();
   }, [token, navigate]);
+
+  const getMutualTransactions = () => {
+    if (!activeContact) return [];
+    return allTransactions.filter(tx => 
+      tx.receiverUpiId === activeContact.upiId || tx.senderUpiId === activeContact.upiId
+    ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  };
 
   const selectedAccount = accounts.find(
     acc => acc.accountId.toString() === selectedAccountId.toString()
@@ -169,7 +231,7 @@ export default function Upi() {
 
         const savedTxs = localStorage.getItem('local_transactions') || '[]';
         const txList = JSON.parse(savedTxs);
-        txList.unshift({
+        const newLocalTx = {
           id: transactionData.transactionId,
           bankId: transactionData.bankId,
           type: 'Debit',
@@ -181,8 +243,12 @@ export default function Upi() {
           senderUpiId: transactionData.senderUpiId,
           receiverUpiId: transactionData.receiverUpiId,
           senderAccount: transactionData.senderAccount
-        });
+        };
+        txList.unshift(newLocalTx);
         localStorage.setItem('local_transactions', JSON.stringify(txList));
+        setAllTransactions(prev => [newLocalTx, ...prev]);
+      } else {
+        setAllTransactions(prev => [transactionData, ...prev]);
       }
 
       setSuccessReceipt(transactionData);
@@ -226,9 +292,9 @@ export default function Upi() {
             </div>
 
             <h2 className="text-3xl font-bold text-gray-900 leading-tight">
-              Transfer Successful!
+              Payment Successful!
             </h2>
-            <p className="text-gray-500 mt-2">Your payment has been processed instantly.</p>
+            <p className="text-gray-500 mt-2">The money has been sent.</p>
 
             <div className="my-8 bg-[#fafafa] w-full py-6 px-4 rounded-2xl border border-gray-100 flex flex-col items-center">
               <span className="text-sm uppercase tracking-wider text-gray-400 font-semibold">Sent Amount</span>
@@ -321,12 +387,13 @@ export default function Upi() {
         </button>
       </div>
 
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="lg:col-span-8">
         <h2 className="text-5xl font-black tracking-tight text-gray-900 mb-4 leading-none">
           UPI & Transfers
         </h2>
         <p className="text-gray-500 mb-6 max-w-md">
-          Transfer money instantly from any linked bank account to any target UPI address securely.
+          Send money to anyone instantly using their UPI ID.
         </p>
 
         <div
@@ -372,6 +439,9 @@ export default function Upi() {
           </div>
         ) : (
           <div className="bg-white rounded-[32px] p-10 shadow-xl border border-gray-200">
+
+
+
             <form onSubmit={handleOpenPinModal} className="space-y-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -404,7 +474,7 @@ export default function Upi() {
                   className="w-full px-4 py-3.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563eb] font-medium text-gray-800"
                 />
                 <span className="text-[11px] text-gray-400 mt-1.5 block">
-                  Verify the UPI ID format before transferring. Payments are instantaneous.
+                  Double check the UPI ID before paying.
                 </span>
               </div>
 
@@ -454,6 +524,124 @@ export default function Upi() {
             </form>
           </div>
         )}
+        </div>
+
+        <div className="lg:col-span-4">
+          {activeContact && (
+            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-gray-200 mb-8 transition-all duration-300 sticky top-8">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold">
+                    {activeContact.initial}
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-gray-900 text-sm">{activeContact.name}</h4>
+                    <p className="text-[10px] text-gray-400 font-mono font-bold">{activeContact.upiId}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setActiveContact(null);
+                    setReceiverUpiId('');
+                  }}
+                  className="w-8 h-8 rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-700 flex items-center justify-center text-xs transition duration-200 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-60 overflow-y-auto mb-6 pr-2 scrollbar-thin">
+                {getMutualTransactions().length === 0 ? (
+                  <div className="text-center py-6 text-xs text-gray-400 font-semibold">
+                    No previous transactions with this user.
+                  </div>
+                ) : (
+                  getMutualTransactions().map(tx => {
+                    const isSent = tx.receiverUpiId === activeContact.upiId;
+                    return (
+                      <div
+                        key={tx.id}
+                        className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${
+                          isSent 
+                            ? 'bg-slate-900 text-white rounded-tr-none' 
+                            : 'bg-[#fafafa] text-gray-900 border border-gray-150 rounded-tl-none'
+                        }`}>
+                          <div className="flex justify-between items-baseline gap-4 mb-1">
+                            <span className="text-xs font-bold font-mono">
+                              {isSent ? '-' : '+'} ₹{parseFloat(tx.amount).toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-[9px] opacity-60">
+                              {tx.status}
+                            </span>
+                          </div>
+                          <p className="text-[10px] opacity-80 font-medium truncate max-w-[200px]">
+                            {tx.desc}
+                          </p>
+                          <div className="text-[8px] opacity-50 mt-1 flex justify-end">
+                            {new Date(tx.timestamp).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {accounts.length > 0 && recentPeople.length > 0 && (
+            <div className={`bg-white rounded-[32px] p-8 shadow-xl border border-gray-200 ${!activeContact ? 'sticky top-8' : ''}`}>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6">
+                Recent Contacts
+              </h3>
+              <div className="flex flex-col gap-3">
+                {recentPeople.map((person, index) => {
+                  const gradients = [
+                    'from-pink-500 to-rose-500',
+                    'from-purple-500 to-indigo-500',
+                    'from-blue-500 to-cyan-500',
+                    'from-teal-500 to-emerald-500',
+                    'from-amber-500 to-orange-500'
+                  ];
+                  const gradient = gradients[index % gradients.length];
+                  
+                  return (
+                    <button
+                      key={person.upiId}
+                      type="button"
+                      onClick={() => {
+                        setActiveContact(person);
+                        setReceiverUpiId(person.upiId);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-colors duration-200 focus:outline-none text-left w-full border border-transparent hover:border-slate-100"
+                    >
+                      <div className={`w-12 h-12 bg-gradient-to-tr ${gradient} rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md shrink-0`}>
+                        {person.initial}
+                      </div>
+                      <div className="overflow-hidden">
+                        <div className="text-sm font-bold text-gray-900 truncate">
+                          {person.name}
+                        </div>
+                        <div className="text-[10px] font-mono text-gray-500 truncate">
+                          {person.upiId}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
 
       {showPinModal && (
@@ -468,7 +656,7 @@ export default function Upi() {
 
               <h3 className="text-xl font-extrabold text-gray-900">Enter Secure UPI PIN</h3>
               <p className="text-xs text-gray-400 mt-1 max-w-xs">
-                To authorize payment from {selectedAccount ? getBankName(selectedAccount.bankId) : 'bank account'}.
+                Confirm payment from {selectedAccount ? getBankName(selectedAccount.bankId) : 'your account'}.
               </p>
 
               <div className="my-6 w-full">

@@ -44,13 +44,20 @@ export default function Dashboard() {
         });
         const banksData = await banksRes.json();
 
-        const accountsRes = await fetch(`${API_BASE_URL}/api/v1/account`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const accountsData = await accountsRes.json();
+        let userAccounts = [];
+        try {
+          const accountsRes = await fetch(`${API_BASE_URL}/api/v1/account`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          const accountsData = await accountsRes.json();
+          if (accountsRes.ok) {
+            userAccounts = accountsData.accounts || [];
+          }
+        } catch (e) {
+        }
 
         let apiTransactions = [];
         try {
@@ -70,18 +77,17 @@ export default function Dashboard() {
         if (!banksRes.ok) {
           throw new Error(banksData.message || 'Failed to fetch bank brands');
         }
-        if (!accountsRes.ok) {
-          throw new Error(accountsData.message || 'Failed to fetch linked accounts');
-        }
 
         const availableBanks = banksData.banks || [];
-        const userAccounts = accountsData.accounts || [];
+        
+        const savedLocal = localStorage.getItem('local_accounts') || '[]';
+        const localAccounts = JSON.parse(savedLocal);
 
         const savedAdjustments = localStorage.getItem('balance_adjustments') || '{}';
         const adjustments = JSON.parse(savedAdjustments);
         const username = localStorage.getItem('bank_username') || 'user';
 
-        const mapped = userAccounts.map(acc => {
+        const mappedApi = userAccounts.map(acc => {
           const bankInfo = availableBanks.find(b => b.bankId === acc.bankId);
           const upiSuffixes = { 1: "okhdfcbank", 2: "oksbi", 3: "okicici", 4: "okaxis", 5: "okprobably" };
           const suffix = upiSuffixes[acc.bankId] || "okbank";
@@ -98,7 +104,21 @@ export default function Dashboard() {
           };
         });
 
-        setLinkedBanks(mapped);
+        const mappedLocal = localAccounts.map(acc => {
+          const adjustedBalance = acc.balance - (adjustments[acc.accountId] || 0);
+          return {
+            id: acc.accountId,
+            bankId: acc.bankId,
+            bankName: acc.bankName,
+            bankCode: acc.bankCode,
+            accountNumber: acc.accountNumber,
+            balance: adjustedBalance,
+            status: acc.status,
+            upiId: acc.upiId
+          };
+        });
+
+        setLinkedBanks([...mappedApi, ...mappedLocal]);
 
         const savedTxs = localStorage.getItem('local_transactions') || '[]';
         const localTransactions = JSON.parse(savedTxs);
@@ -134,7 +154,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center font-semibold text-gray-600">
-        Syncing banking dashboard...
+        Loading dashboard...
       </div>
     );
   }
