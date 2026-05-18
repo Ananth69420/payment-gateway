@@ -216,11 +216,17 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setShowBankModal(true)}
-              className="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-bold px-5 py-2.5 rounded-xl transition shadow-sm"
+              onClick={() => navigate('/home')}
+              className="bg-white hover:bg-gray-100 border border-gray-200 text-gray-800 px-6 py-3 rounded-2xl font-bold transition"
             >
-              + Add Bank
+               Home
             </button>
+            <button
+  onClick={() => navigate('/upi')}
+  className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white px-6 py-3 rounded-2xl font-bold transition shadow-lg"
+>
+  Quick Transfer
+</button>
             <button
               onClick={handleLogout}
               className="bg-black hover:bg-gray-800 text-white font-bold px-5 py-2.5 rounded-xl transition"
