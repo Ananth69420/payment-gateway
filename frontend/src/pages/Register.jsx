@@ -33,22 +33,22 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center px-3 py-4 md:p-6">
 
       <div className="w-full max-w-6xl bg-white rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
 
         {/* LEFT SIDE */}
-        <div className="bg-[#0f172a] text-white p-12 flex flex-col justify-between relative">
+        <div className="bg-[#0f172a] text-white p-5 md:p-12 flex flex-col justify-center gap-10 relative">
 
           <div>
-            <h1 className="text-5xl font-bold tracking-wide text-[#7dd3fc]" 
+            <h1 className="text-3xl md:text-5xl font-bold tracking-wide text-[#7dd3fc] " 
             style={{ fontFamily: 'Space Grotesk' }}git >
               
               Probably<span className="text-white">ABank</span>
             </h1>
 
-            <div className="mt-20 space-y-3">
-              <h2 className="text-4xl font-bold leading-tight text-gray-300">
+            <div className="mt-8 md:mt-20 space-y-3">
+              <h2 className="text-3xl md:text-4xl font-bold leading-tight text-gray-300">
                 Payments.
                 <br />
                 Banking.
@@ -56,14 +56,14 @@ export default function Register() {
                 Everything.
               </h2>
 
-              <p className="mt-6 text-gray-300 text-lg">
+              <p className="mt-6 text-gray-300 text-base md:text-lg">
                 If it involves money, we do it.
               </p>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 mt-10">
-            <p className="text-lg leading-8 text-gray-200">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-white/10 mt-10">
+            <p className="text-base md:text-lg leading-7 md:leading-8 text-gray-200">
               Manage payments, transfers, UPI services, and banking
               operations all from one secure platform.
             </p>
@@ -78,11 +78,11 @@ export default function Register() {
         </div>
 
         {/* RIGHT SIDE */}
-        <div className="bg-[#fafafa] flex items-center justify-center p-10">
+        <div className="bg-[#fafafa] flex items-center justify-center p-5 md:p-10">
 
           <div className="w-full max-w-md">
 
-            <h2 className="text-4xl font-bold text-gray-900 mb-2">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Create Account
             </h2>
 
@@ -153,7 +153,7 @@ export default function Register() {
                   required
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full max-w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
 
