@@ -25,7 +25,7 @@ export default function Register() {
       if (!response.ok) throw new Error(data.message || 'Registration failed');
 
       localStorage.setItem('bank_auth_token', data.token);
-      navigate('/dashboard');
+      navigate('/home');
 
     } catch (err) {
       setError(err.message);

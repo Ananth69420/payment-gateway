@@ -2,6 +2,7 @@ const STATUS_CODES = require('../constant/statusCode');
 const pool = require('../db/connection');
 
 const getAllBankController = async (req, res) => {
+  
   try {
     const query = `SELECT * FROM Banks`;
     const [rows] = await pool.query(query);
