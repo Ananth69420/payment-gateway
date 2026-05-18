@@ -51,6 +51,7 @@ const setBankController = async (req, res) => {
 const updateBankController = async (req, res) => {
   const { id } = req.params;
   try {
+    // we need to update this query
     const query = `SELECT * FROM Banks WHERE bankId = ?`;
     const [rows] = await pool.execute(query, [id]);
     res
