@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
 
 export default function Register() {
   const [username, setUsername] = useState('');
@@ -13,8 +14,19 @@ export default function Register() {
     e.preventDefault();
     setError('');
 
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    if (!hasLetter || !hasNumber) {
+      setError('Password must contain at least one letter and one number');
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:5000/api/v1/user/register', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/user/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, phone_number: phoneNumber, dob }),
@@ -26,7 +38,6 @@ export default function Register() {
 
       localStorage.setItem('bank_auth_token', data.token);
       navigate('/dashboard');
-
     } catch (err) {
       setError(err.message);
     }
@@ -34,16 +45,13 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center p-6">
-
       <div className="w-full max-w-6xl bg-white rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
-
-        {/* LEFT SIDE */}
         <div className="bg-[#0f172a] text-white p-12 flex flex-col justify-between relative">
-
           <div>
-            <h1 className="text-5xl font-bold tracking-wide text-[#7dd3fc]" 
-            style={{ fontFamily: 'Space Grotesk' }}git >
-              
+            <h1 
+              className="text-5xl font-bold tracking-wide text-[#7dd3fc]" 
+              style={{ fontFamily: 'Space Grotesk' }}
+            >
               Probably<span className="text-white">ABank</span>
             </h1>
 
@@ -69,7 +77,7 @@ export default function Register() {
             </p>
 
             <div className="mt-6">
-              <p className="font-semibold">From UPI to bank accounts — we handle the chaos.</p>
+              <p className="font-semibold">From UPI to bank accounts, we handle the chaos.</p>
               <p className="text-sm text-gray-400 mt-1">
                 Fast • Secure • Reliable
               </p>
@@ -77,11 +85,8 @@ export default function Register() {
           </div>
         </div>
 
-        {/* RIGHT SIDE */}
         <div className="bg-[#fafafa] flex items-center justify-center p-10">
-
           <div className="w-full max-w-md">
-
             <h2 className="text-4xl font-bold text-gray-900 mb-2">
               Create Account
             </h2>
@@ -91,75 +96,73 @@ export default function Register() {
             </p>
 
             {error && (
-              <div className="bg-red-100 text-red-700 p-3 rounded-xl mb-4 text-sm">
+              <div className="bg-red-100 text-red-700 p-3 rounded-xl mb-4 text-sm font-semibold border border-red-200">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleRegister} className="space-y-5">
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Username
                 </label>
-
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter username"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black font-medium text-gray-800"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Password
                 </label>
-
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black font-medium text-gray-800"
                 />
+                <span className="text-[11px] text-gray-400 mt-1.5 block">
+                  Must be at least 8 characters, containing at least one letter and one number.
+                </span>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Phone Number
                 </label>
-
                 <input
                   type="tel"
                   required
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="Enter phone number"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black font-medium text-gray-800"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Date of Birth
                 </label>
-
                 <input
                   type="date"
                   required
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-black font-medium text-gray-800"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-black hover:bg-gray-800 text-white py-3 rounded-xl font-semibold transition duration-300"
+                className="w-full bg-black hover:bg-gray-800 text-white py-3.5 rounded-xl font-bold transition duration-300 mt-4 shadow-md"
               >
                 Create Account
               </button>
@@ -169,7 +172,7 @@ export default function Register() {
               Already have an account?{' '}
               <Link
                 to="/login"
-                className="font-semibold text-black hover:underline"
+                className="font-bold text-black hover:underline"
               >
                 Sign in
               </Link>

@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import LinkAccount from './pages/LinkAccount';
 import Home from './pages/Home';
+import Upi from './pages/Upi';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/link-account" element={<LinkAccount />} />
         <Route path="/home" element={<Home />} />
+        <Route path="/upi" element={<Upi />} />
 
 
       </Routes>
