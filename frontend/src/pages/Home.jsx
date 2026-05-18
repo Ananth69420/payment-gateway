@@ -22,12 +22,6 @@ export default function Home() {
         {token ? (
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/dashboard')}
-              className="bg-white hover:bg-gray-100 text-gray-800 px-5 py-2.5 rounded-xl font-semibold border border-gray-200 transition duration-300"
-            >
-              Dashboard
-            </button>
-            <button
               onClick={handleLogout}
               className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-semibold transition duration-300"
             >

@@ -201,12 +201,14 @@ export default function Dashboard() {
         {/* NAVBAR */}
         <div className="py-6 flex items-center justify-between mb-8">
           <div>
-            <h1
-              className="text-4xl font-bold tracking-tight text-[#2563eb]"
-              style={{ fontFamily: 'Space Grotesk' }}
-            >
-              Probably<span className="text-black">ABank</span>
-            </h1>
+            <Link to="/home" className="block">
+              <h1
+                className="text-4xl font-bold tracking-tight text-[#2563eb]"
+                style={{ fontFamily: 'Space Grotesk' }}
+              >
+                Probably<span className="text-black">ABank</span>
+              </h1>
+            </Link>
             <p className="text-gray-500 mt-1 font-medium">
               Your financial control center.
             </p>
@@ -229,13 +231,14 @@ export default function Dashboard() {
         </div>
 
         {/* HERO SECTION */}
-        <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-[36px] p-10 text-white shadow-2xl overflow-hidden relative mb-12">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+        <div className="bg-gradient-to-br from-[#070b14] via-[#0f172a] to-[#070b14] rounded-[40px] p-12 md:p-16 text-white shadow-[0_20px_50px_rgb(0,0,0,0.15)] overflow-hidden relative mb-16 border border-white/5">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-indigo-500/20 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4 pointer-events-none"></div>
           <div className="relative z-10">
-            <p className="uppercase tracking-[0.25em] text-[#7dd3fc] text-sm font-bold">
+            <p className="uppercase tracking-[0.3em] text-[#7dd3fc] text-xs font-extrabold mb-6">
               Dashboard
             </p>
-            <h2 className="text-5xl font-bold mt-5 leading-tight">
+            <h2 className="text-6xl md:text-7xl font-black tracking-tight leading-[1.1] mb-6">
               Banking.<br />
               But less painful.
             </h2>
@@ -246,7 +249,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="w-full">
 
 
           {linkedBanks.length === 0 ? (

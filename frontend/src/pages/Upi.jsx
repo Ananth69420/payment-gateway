@@ -21,6 +21,9 @@ export default function Upi() {
   const [submitError, setSubmitError] = useState('');
 
   const [successReceipt, setSuccessReceipt] = useState(null);
+  const [showAllContacts, setShowAllContacts] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [showTxModal, setShowTxModal] = useState(false);
 
   const [copiedUpi, setCopiedUpi] = useState(false);
   const handleCopyUpi = (upiString) => {
@@ -528,8 +531,8 @@ export default function Upi() {
 
         <div className="lg:col-span-4">
           {activeContact && (
-            <div className="bg-white rounded-[32px] p-8 shadow-xl border border-gray-200 mb-8 transition-all duration-300 sticky top-8">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-6">
+            <div className="bg-white rounded-[32px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 mb-8 transition-all duration-300">
+              <div className="flex items-center justify-between border-b border-gray-50 pb-5 mb-5 px-2">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold">
                     {activeContact.initial}
@@ -563,23 +566,30 @@ export default function Upi() {
                         key={tx.id}
                         className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}
                       >
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${
-                          isSent 
-                            ? 'bg-slate-900 text-white rounded-tr-none' 
-                            : 'bg-[#fafafa] text-gray-900 border border-gray-150 rounded-tl-none'
-                        }`}>
-                          <div className="flex justify-between items-baseline gap-4 mb-1">
-                            <span className="text-xs font-bold font-mono">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTransaction(tx);
+                            setShowTxModal(true);
+                          }}
+                          className={`max-w-[85%] px-5 py-4 shadow-sm text-left group hover:opacity-90 transition-opacity focus:outline-none ${
+                            isSent 
+                              ? 'bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-[24px] rounded-tr-[6px]' 
+                              : 'bg-white text-gray-900 border border-gray-100 rounded-[24px] rounded-tl-[6px]'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center gap-6 mb-2">
+                            <span className="text-sm font-black tracking-tight">
                               {isSent ? '-' : '+'} ₹{parseFloat(tx.amount).toLocaleString('en-IN')}
                             </span>
-                            <span className="text-[9px] opacity-60">
+                            <span className={`text-[9px] font-bold tracking-widest uppercase ${isSent ? 'text-white/60' : 'text-gray-400'}`}>
                               {tx.status}
                             </span>
                           </div>
-                          <p className="text-[10px] opacity-80 font-medium truncate max-w-[200px]">
+                          <p className={`text-[11px] font-medium leading-relaxed truncate max-w-[220px] ${isSent ? 'text-white/80' : 'text-gray-600'}`}>
                             {tx.desc}
                           </p>
-                          <div className="text-[8px] opacity-50 mt-1 flex justify-end">
+                          <div className={`text-[9px] font-semibold mt-2 flex justify-end ${isSent ? 'text-white/40' : 'text-gray-400'}`}>
                             {new Date(tx.timestamp).toLocaleDateString('en-IN', {
                               day: 'numeric',
                               month: 'short',
@@ -587,7 +597,7 @@ export default function Upi() {
                               minute: '2-digit'
                             })}
                           </div>
-                        </div>
+                        </button>
                       </div>
                     );
                   })
@@ -597,12 +607,12 @@ export default function Upi() {
           )}
 
           {accounts.length > 0 && recentPeople.length > 0 && (
-            <div className={`bg-white rounded-[32px] p-8 shadow-xl border border-gray-200 ${!activeContact ? 'sticky top-8' : ''}`}>
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6">
+            <div className={`bg-white rounded-[32px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 ${!activeContact ? 'sticky top-8' : ''}`}>
+              <h3 className="text-[10px] font-extrabold text-gray-400/80 uppercase tracking-[0.2em] mb-5 px-2">
                 Recent Contacts
               </h3>
-              <div className="flex flex-col gap-3">
-                {recentPeople.map((person, index) => {
+              <div className="grid grid-cols-4 gap-y-6 gap-x-2">
+                {(showAllContacts || recentPeople.length <= 8 ? recentPeople : recentPeople.slice(0, 7)).map((person, index) => {
                   const gradients = [
                     'from-pink-500 to-rose-500',
                     'from-purple-500 to-indigo-500',
@@ -621,22 +631,51 @@ export default function Upi() {
                         setReceiverUpiId(person.upiId);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="flex items-center gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-colors duration-200 focus:outline-none text-left w-full border border-transparent hover:border-slate-100"
+                      className="flex flex-col items-center gap-2 group focus:outline-none"
                     >
-                      <div className={`w-12 h-12 bg-gradient-to-tr ${gradient} rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md shrink-0`}>
+                      <div className={`w-14 h-14 bg-gradient-to-tr ${gradient} rounded-full flex items-center justify-center text-white text-xl font-bold shadow-md shrink-0 group-hover:scale-110 transition-transform duration-300`}>
                         {person.initial}
                       </div>
-                      <div className="overflow-hidden">
-                        <div className="text-sm font-bold text-gray-900 truncate">
-                          {person.name}
-                        </div>
-                        <div className="text-[10px] font-mono text-gray-500 truncate">
-                          {person.upiId}
-                        </div>
+                      <div className="text-[11px] font-bold text-gray-800 text-center w-full px-1 truncate">
+                        {person.name.split(' ')[0]}
                       </div>
                     </button>
                   );
                 })}
+                
+                {!showAllContacts && recentPeople.length > 8 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllContacts(true)}
+                    className="flex flex-col items-center gap-2 group focus:outline-none"
+                  >
+                    <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 shadow-sm border border-gray-150 group-hover:bg-gray-100 group-hover:scale-110 transition-all duration-300">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    <div className="text-[11px] font-bold text-gray-600 text-center w-full truncate">
+                      More
+                    </div>
+                  </button>
+                )}
+                
+                {showAllContacts && recentPeople.length > 8 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllContacts(false)}
+                    className="flex flex-col items-center gap-2 group focus:outline-none"
+                  >
+                    <div className="w-14 h-14 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 shadow-sm border border-gray-150 group-hover:bg-gray-100 group-hover:scale-110 transition-all duration-300">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                      </svg>
+                    </div>
+                    <div className="text-[11px] font-bold text-gray-600 text-center w-full truncate">
+                      Less
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -702,6 +741,78 @@ export default function Upi() {
                 >
                   {submitting ? 'Verifying...' : 'Pay Now'}
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTxModal && selectedTransaction && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 z-[9999]">
+          <div className="w-full max-w-md bg-white rounded-3xl p-8 border border-gray-150 shadow-2xl relative">
+            <button 
+              onClick={() => setShowTxModal(false)}
+              className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition"
+            >
+              ✕
+            </button>
+            <div className="flex flex-col items-center">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+                selectedTransaction.receiverUpiId === activeContact?.upiId ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'
+              }`}>
+                {selectedTransaction.receiverUpiId !== activeContact?.upiId ? (
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                ) : (
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  </svg>
+                )}
+              </div>
+
+              <span className="text-xs uppercase tracking-widest text-gray-400 font-extrabold">Transaction Receipt</span>
+              
+              <h3 className={`text-4xl font-black mt-2 ${
+                selectedTransaction.receiverUpiId === activeContact?.upiId ? 'text-gray-900' : 'text-green-600'
+              }`}>
+                {selectedTransaction.receiverUpiId === activeContact?.upiId ? '-' : '+'}₹{parseFloat(selectedTransaction.amount).toLocaleString('en-IN')}
+              </h3>
+              
+              <div className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase mt-2.5 border border-green-200/50">
+                {selectedTransaction.status || 'SUCCESS'}
+              </div>
+
+              <div className="w-full mt-8 space-y-4 border-t border-b border-gray-100 py-6">
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-gray-400">Ref ID:</span>
+                  <span className="text-gray-900 font-mono">{selectedTransaction.transactionId || 'N/A'}</span>
+                </div>
+
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-gray-400">Sender UPI:</span>
+                  <span className="text-gray-900">{selectedTransaction.senderUpiId || 'N/A'}</span>
+                </div>
+
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-gray-400">Receiver UPI:</span>
+                  <span className="text-gray-900">{selectedTransaction.receiverUpiId || 'N/A'}</span>
+                </div>
+
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-gray-400">Date & Time:</span>
+                  <span className="text-gray-900">
+                    {new Date(selectedTransaction.timestamp).toLocaleDateString('en-IN', {
+                      day: 'numeric', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="w-full bg-slate-50 rounded-xl p-4 mt-6 border border-slate-100">
+                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Message</span>
+                <span className="text-sm font-semibold text-slate-700 break-words">{selectedTransaction.desc}</span>
               </div>
             </div>
           </div>
