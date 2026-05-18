@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
+import BankCard from '../components/BankCard';
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -16,6 +17,9 @@ export default function Dashboard() {
   const [copiedText, setCopiedText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('All');
+  
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [availableBanks, setAvailableBanks] = useState([]);
 
   const handleCopyUpi = (upiString) => {
     navigator.clipboard.writeText(upiString);
@@ -78,7 +82,8 @@ export default function Dashboard() {
           throw new Error(banksData.message || 'Failed to fetch bank brands');
         }
 
-        const availableBanks = banksData.banks || [];
+        const availableBanksFetched = banksData.banks || [];
+        setAvailableBanks(availableBanksFetched);
         
         const savedLocal = localStorage.getItem('local_accounts') || '[]';
         const localAccounts = JSON.parse(savedLocal);
@@ -88,7 +93,7 @@ export default function Dashboard() {
         const username = localStorage.getItem('bank_username') || 'user';
 
         const mappedApi = userAccounts.map(acc => {
-          const bankInfo = availableBanks.find(b => b.bankId === acc.bankId);
+          const bankInfo = availableBanksFetched.find(b => b.bankId === acc.bankId);
           const upiSuffixes = { 1: "okhdfcbank", 2: "oksbi", 3: "okicici", 4: "okaxis", 5: "okprobably" };
           const suffix = upiSuffixes[acc.bankId] || "okbank";
           const adjustedBalance = acc.balance - (adjustments[acc.accountId] || 0);
@@ -192,38 +197,57 @@ export default function Dashboard() {
   if (!selectedBank) {
     return (
       <div className="min-h-screen bg-[#f4f1ea] px-6 py-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between mb-14">
-          <Link to="/home">
+      <div className="max-w-7xl mx-auto">
+        {/* NAVBAR */}
+        <div className="py-6 flex items-center justify-between mb-8">
+          <div>
             <h1
               className="text-4xl font-bold tracking-tight text-[#2563eb]"
               style={{ fontFamily: 'Space Grotesk' }}
             >
               Probably<span className="text-black">ABank</span>
             </h1>
-          </Link>
-          <div className="flex gap-4">
-            <Link
-              to="/home"
-              className="bg-white hover:bg-gray-100 text-gray-800 px-5 py-2.5 rounded-xl font-semibold border border-gray-200 transition duration-300"
+            <p className="text-gray-500 mt-1 font-medium">
+              Your financial control center.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowBankModal(true)}
+              className="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-bold px-5 py-2.5 rounded-xl transition shadow-sm"
             >
-              Home
-            </Link>
+              + Add Bank
+            </button>
             <button
               onClick={handleLogout}
-              className="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-semibold transition duration-300"
+              className="bg-black hover:bg-gray-800 text-white font-bold px-5 py-2.5 rounded-xl transition"
             >
-              Log Out
+              Logout
             </button>
           </div>
         </div>
 
+        {/* HERO SECTION */}
+        <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-[36px] p-10 text-white shadow-2xl overflow-hidden relative mb-12">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+          <div className="relative z-10">
+            <p className="uppercase tracking-[0.25em] text-[#7dd3fc] text-sm font-bold">
+              Dashboard
+            </p>
+            <h2 className="text-5xl font-bold mt-5 leading-tight">
+              Banking.<br />
+              But less painful.
+            </h2>
+            <p className="mt-4 text-gray-300 text-lg max-w-xl leading-8">
+              Manage accounts, track balances, monitor transactions,
+              and move money without opening seventeen tabs.
+            </p>
+          </div>
+        </div>
+
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-5xl font-black text-gray-900 tracking-tight leading-none mb-4">
-            Welcome to banking.
-          </h2>
-          <p className="text-gray-500 mb-12 max-w-md mx-auto">
-            Choose a linked bank account to manage your funds and make transfers.
-          </p>
+
 
           {linkedBanks.length === 0 ? (
             <div className="bg-white rounded-[32px] p-12 shadow-xl border border-gray-200 text-center max-w-xl mx-auto">
@@ -297,6 +321,7 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      </div>
       </div>
     );
   }
@@ -610,6 +635,57 @@ export default function Dashboard() {
               >
                 Close Receipt
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD BANK MODAL */}
+      {showBankModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-[36px] p-8 w-full max-w-lg shadow-2xl relative">
+            <button
+              onClick={() => setShowBankModal(false)}
+              className="absolute top-5 right-5 text-2xl text-gray-400 hover:text-black transition"
+            >
+              ✕
+            </button>
+
+            <p className="uppercase tracking-[0.25em] text-[#2563eb] font-bold text-xs">
+              Link A Bank
+            </p>
+
+            <h2 className="text-3xl font-bold mt-3">
+              Connect your account
+            </h2>
+
+            <p className="text-gray-500 mt-2 leading-7 text-sm">
+              Login or create an account in one of our supported banks.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 mt-8">
+              {availableBanks.length === 0 ? (
+                <div className="border border-dashed border-gray-300 rounded-2xl p-8 text-center bg-gray-50">
+                  <h3 className="text-xl font-bold text-gray-700">
+                    No Banks Available
+                  </h3>
+                  <p className="text-gray-500 mt-2 text-sm leading-6">
+                    There are currently no supported banks available to connect.
+                  </p>
+                </div>
+              ) : (
+                availableBanks.map((bank) => (
+                  <BankCard
+                    key={bank.bankId}
+                    bank={bank}
+                    onClick={() =>
+                      navigate('/link-account', {
+                        state: { bank },
+                      })
+                    }
+                  />
+                ))
+              )}
             </div>
           </div>
         </div>
