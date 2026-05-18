@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -12,7 +13,7 @@ export default function Login() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/v1/user/login', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/user/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -23,11 +24,10 @@ export default function Login() {
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
       }
-      //Jwt
-      localStorage.setItem('bank_auth_token', data.token);
 
+      localStorage.setItem('bank_auth_token', data.accessToken || data.token);
+      localStorage.setItem('bank_username', username);
       navigate('/home');
-
     } catch (err) {
       setError(err.message);
     }
@@ -35,14 +35,10 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center px-3 py-4 md:p-6">
-
-      <div className="w-full max-w-6xl bg-white  rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
-
+      <div className="w-full max-w-6xl bg-white rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
         {/* LEFT SIDE - LOGIN FORM */}
         <div className="bg-[#fafafa] flex items-center justify-center pt-8 pb-5 px-5 md:p-10">
-
           <div className="w-full max-w-md">
-
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Welcome Back
             </h2>
@@ -52,46 +48,43 @@ export default function Login() {
             </p>
 
             {error && (
-              <div className="bg-red-100 text-red-700 p-3 rounded-xl mb-4 text-sm">
+              <div className="bg-red-100 text-red-700 p-3 rounded-xl mb-4 text-sm font-semibold border border-red-200">
                 {error}
               </div>
             )}
 
             <form onSubmit={handleLogin} className="space-y-5">
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Username
                 </label>
-
                 <input
                   type="text"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter username"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563eb] font-medium text-gray-800"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Password
                 </label>
-
                 <input
                   type="password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563eb] font-medium text-gray-800"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] hover:scale-[1.02] transition-all duration-300 text-white py-3 rounded-xl font-semibold"
+                className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] hover:scale-[1.02] transition-all duration-300 text-white py-3.5 rounded-xl font-bold mt-4 shadow-md"
               >
                 Sign In
               </button>
@@ -101,7 +94,7 @@ export default function Login() {
               Don&apos;t have an account?{' '}
               <Link
                 to="/register"
-                className="font-semibold text-[#2563eb] hover:underline"
+                className="font-bold text-[#2563eb] hover:underline"
               >
                 Create one here
               </Link>
@@ -111,7 +104,6 @@ export default function Login() {
 
         {/* RIGHT SIDE - DESIGN SECTION */}
         <div className="bg-[#0f172a] text-white p-5 md:p-12 flex flex-col justify-between">
-
           <div>
             <h1
               className="text-3xl md:text-5xl font-bold tracking-tight text-[#7dd3fc]"
@@ -135,19 +127,13 @@ export default function Login() {
           </div>
 
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-white/10 mt-10">
-
             <p className="text-base md:text-lg leading-7 md:leading-8 text-gray-200">
-              Securely access your accounts, track transactions,
-              and manage your finances in one place.
+              Check your balances, see who you paid last night, and send cash instantly.
             </p>
 
             <div className="mt-6">
               <p className="font-semibold">
                 Logging into adulthood since 2026.
-              </p>
-
-              <p className="text-sm text-gray-400 mt-1">
-                Fast • Secure • Reliable
               </p>
             </div>
           </div>
