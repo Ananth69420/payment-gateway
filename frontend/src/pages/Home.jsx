@@ -60,7 +60,7 @@ export default function Home() {
         {/* BANK CARD */}
         <Link to="/dashboard">
 
-          <div className="bg-[#0f172a] text-white rounded-[28px] p-10 h-[320px] flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 shadow-xl cursor-pointer">
+          <div className="bg-[#0f172a] text-white rounded-[28px] p-10  h-[320px] flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 shadow-xl cursor-pointer">
 
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-gray-400">
@@ -93,7 +93,7 @@ export default function Home() {
         {/* UPI CARD */}
         <Link to="/upi">
 
-          <div className="bg-white rounded-[28px] p-10 h-[320px] flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 shadow-xl border border-gray-200 cursor-pointer">
+          <div className="bg-white rounded-[28px] p-10 h-[320px]  flex flex-col justify-between hover:scale-[1.02] transition-all duration-300 shadow-xl border border-gray-200 cursor-pointer">
 
             <div>
               <p className="text-sm uppercase tracking-[0.2em] text-gray-500">

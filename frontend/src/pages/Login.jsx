@@ -34,16 +34,16 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center px-3 py-4 md:p-6">
 
-      <div className="w-full max-w-6xl bg-white rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
+      <div className="w-full max-w-6xl bg-white  rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
 
         {/* LEFT SIDE - LOGIN FORM */}
-        <div className="bg-[#fafafa] flex items-center justify-center p-10">
+        <div className="bg-[#fafafa] flex items-center justify-center pt-8 pb-5 px-5 md:p-10">
 
           <div className="w-full max-w-md">
 
-            <h2 className="text-4xl font-bold text-gray-900 mb-2">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
               Welcome Back
             </h2>
 
@@ -110,33 +110,33 @@ export default function Login() {
         </div>
 
         {/* RIGHT SIDE - DESIGN SECTION */}
-        <div className="bg-[#0f172a] text-white p-12 flex flex-col justify-between">
+        <div className="bg-[#0f172a] text-white p-5 md:p-12 flex flex-col justify-between">
 
           <div>
             <h1
-              className="text-5xl font-bold tracking-tight text-[#7dd3fc]"
+              className="text-3xl md:text-5xl font-bold tracking-tight text-[#7dd3fc]"
               style={{ fontFamily: 'Space Grotesk' }}
             >
               Probably<span className="text-white">ABank</span>
             </h1>
 
-            <div className="mt-20">
-              <h2 className="text-5xl font-bold leading-tight text-gray-100">
+            <div className="mt-8 md:mt-20">
+              <h2 className="text-3xl md:text-5xl font-bold leading-tight text-gray-100">
                 Welcome
                 <br />
                 Back.
               </h2>
 
-              <p className="mt-6 text-lg text-gray-300 leading-8">
+              <p className="mt-6 text-base md:text-lg text-gray-300 leading-7 md:leading-8">
                 Your payments, transfers, and banking tools —
                 exactly where you left them.
               </p>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 mt-10">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-white/10 mt-10">
 
-            <p className="text-lg leading-8 text-gray-200">
+            <p className="text-base md:text-lg leading-7 md:leading-8 text-gray-200">
               Securely access your accounts, track transactions,
               and manage your finances in one place.
             </p>

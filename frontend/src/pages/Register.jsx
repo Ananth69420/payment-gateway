@@ -35,7 +35,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center px-3 py-4 md:p-6">
 
-      <div className="w-full max-w-6xl bg-white rounded-[32px] overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
+      <div className="w-full max-w-6xl bg-white  overflow-hidden shadow-2xl grid grid-cols-1 md:grid-cols-2">
 
         {/* LEFT SIDE */}
         <div className="bg-[#0f172a] text-white p-5 md:p-12 flex flex-col justify-center gap-10 relative">
