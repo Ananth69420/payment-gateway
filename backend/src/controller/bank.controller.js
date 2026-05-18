@@ -3,7 +3,7 @@ const pool = require('../db/connection');
 
 const getAllBankController = async (req, res) => {
   try {
-    const query = `SELECT * FROM banks`;
+    const query = `SELECT * FROM Banks`;
     const [rows] = await pool.query(query);
     res.status(STATUS_CODES.OK).json({
       success: true,
@@ -19,12 +19,13 @@ const getAllBankController = async (req, res) => {
 const getBankByIdController = async (req, res) => {
   const { id } = req.params;
   try {
-    const query = `SELECT * FROM banks WHERE id = ?`;
+    const query = `SELECT * FROM Banks WHERE bankId = ?`;
     const [rows] = await pool.execute(query, [id]);
     res.status(STATUS_CODES.OK).json({
       success: true,
       banks: rows,
       message: 'Fetched a single bank details',
+      handler: 'GetBankByIdController',
     });
   } catch (error) {
     res
@@ -35,7 +36,7 @@ const getBankByIdController = async (req, res) => {
 const setBankController = async (req, res) => {
   const { name, code } = req.body;
   try {
-    const query = `INSERT INTO banks (name,code) VALUES (?,?)`;
+    const query = `INSERT INTO Banks (name,code) VALUES (?,?)`;
     const [rows] = await pool.execute(query, [name, code]);
     res
       .status(STATUS_CODES.OK)
@@ -49,7 +50,7 @@ const setBankController = async (req, res) => {
 const updateBankController = async (req, res) => {
   const { id } = req.params;
   try {
-    const query = `SELECT * FROM banks WHERE id = ?`;
+    const query = `SELECT * FROM Banks WHERE bankId = ?`;
     const [rows] = await pool.execute(query, [id]);
     res
       .status(STATUS_CODES.OK)
@@ -63,7 +64,7 @@ const updateBankController = async (req, res) => {
 const deleteBankController = async (req, res) => {
   const { id } = req.params;
   try {
-    const query = `DELETE FROM banks WHERE id = ?`;
+    const query = `DELETE FROM Banks WHERE bankId = ?`;
     const [rows] = await pool.execute(query, [id]);
     res
       .status(STATUS_CODES.OK)

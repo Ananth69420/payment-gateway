@@ -15,7 +15,7 @@ const loginController = async (req, res) => {
         .json({ success: false, message: 'Missing Input Field' });
     }
 
-    const checkQuery = `SELECT id,username,password FROM users WHERE username = ?`;
+    const checkQuery = `SELECT userId,username,password FROM Users WHERE username = ?`;
     const [checkRows] = await pool.execute(checkQuery, [username]);
 
     if (checkRows.length === 0) {
@@ -33,7 +33,7 @@ const loginController = async (req, res) => {
     }
 
     const accessToken = jwt.sign(
-      { userId: checkRows[0].id },
+      { userId: checkRows[0].userId },
       process.env.JWT_ACCESS_SECRET,
       { expiresIn: '1h' },
     );
@@ -41,10 +41,12 @@ const loginController = async (req, res) => {
     return res.status(STATUS_CODES.OK).json({
       success: true,
       message: 'User login successfully',
-      userId: checkRows[0].id,
+      userId: checkRows[0].userId,
       accessToken,
     });
   } catch (error) {
+    console.log(error);
+
     return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: 'Internal Server Error',
@@ -81,12 +83,12 @@ const registerController = async (req, res) => {
           .json({ success: false, message: 'Age should be greater than 18' });
       }
     } catch (error) {
-      res
+      return res
         .status(STATUS_CODES.BAD_REQUEST)
         .json({ success: false, message: 'Invalid Year Format' });
     }
     // Checks for if the username or phone number existing
-    const findQuery = `SELECT * FROM users WHERE username = ? OR phone_number = ?`;
+    const findQuery = `SELECT * FROM Users WHERE username = ? OR phone_number = ?`;
     const [findRows] = await pool.execute(findQuery, [username, phone_number]);
 
     if (findRows.length > 0) {
@@ -98,7 +100,7 @@ const registerController = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert into database
-    const insertQuery = `INSERT INTO users (username,password,phone_number,DOB) VALUES (?,?,?,?)`;
+    const insertQuery = `INSERT INTO Users (username,password,phone_number,DOB) VALUES (?,?,?,?)`;
     const [insertRows] = await pool.execute(insertQuery, [
       username,
       hashedPassword,

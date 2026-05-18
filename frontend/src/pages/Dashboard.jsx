@@ -23,24 +23,52 @@ export default function Dashboard() {
       return;
     }
 
-    const fetchMyBanks = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('http://localhost:5000/api/my-banks', {
+
+        // 1. Fetch available bank brands
+        const banksRes = await fetch('http://localhost:5000/api/v1/banks', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
+        const banksData = await banksRes.json();
 
-        const data = await response.json();
+        // 2. Fetch user's linked accounts
+        const accountsRes = await fetch('http://localhost:5000/api/v1/account', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const accountsData = await accountsRes.json();
 
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to fetch linked banks');
+        if (!banksRes.ok) {
+          throw new Error(banksData.message || 'Failed to fetch bank brands');
+        }
+        if (!accountsRes.ok) {
+          throw new Error(accountsData.message || 'Failed to fetch linked accounts');
         }
 
-        const banks = Array.isArray(data) ? data : (data.banks || []);
-        setLinkedBanks(banks);
+        const availableBanks = banksData.banks || [];
+        const userAccounts = accountsData.accounts || [];
+
+        // 3. Map accounts together with bank brands
+        const mapped = userAccounts.map(acc => {
+          const bankInfo = availableBanks.find(b => b.bankId === acc.bankId);
+          return {
+            id: acc.accountId,
+            bankId: acc.bankId,
+            bankName: bankInfo ? bankInfo.name : `Bank ${acc.bankId}`,
+            accountNumber: acc.accountId,
+            balance: acc.balance,
+            status: acc.status
+          };
+        });
+
+        setLinkedBanks(mapped);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -48,7 +76,7 @@ export default function Dashboard() {
       }
     };
 
-    fetchMyBanks();
+    fetchDashboardData();
   }, [token, navigate]);
 
   const handleLogout = () => {
@@ -87,7 +115,7 @@ export default function Dashboard() {
           <div>
             <p>Choose an active bank to view dashboard:</p>
             <select onChange={(e) => {
-              const bank = linkedBanks.find(b => b.id === e.target.value);
+              const bank = linkedBanks.find(b => b.id.toString() === e.target.value.toString());
               if (bank) setSelectedBank(bank);
             }} defaultValue="">
               <option value="" disabled>-- Select Bank --</option>
