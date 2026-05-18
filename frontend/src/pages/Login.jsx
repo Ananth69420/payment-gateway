@@ -25,7 +25,8 @@ export default function Login() {
         throw new Error(data.message || 'Login failed');
       }
 
-      localStorage.setItem('bank_auth_token', data.token);
+      localStorage.setItem('bank_auth_token', data.accessToken || data.token);
+      localStorage.setItem('bank_username', username);
       navigate('/home');
     } catch (err) {
       setError(err.message);

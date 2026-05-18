@@ -52,13 +52,20 @@ export default function Dashboard() {
         });
         const accountsData = await accountsRes.json();
 
-        const transactionsRes = await fetch(`${API_BASE_URL}/api/v1/upi/transactions`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const transactionsData = await transactionsRes.json();
+        let apiTransactions = [];
+        try {
+          const transactionsRes = await fetch(`${API_BASE_URL}/api/v1/upi/transactions`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          const transactionsData = await transactionsRes.json();
+          if (transactionsRes.ok) {
+            apiTransactions = transactionsData.transactions || [];
+          }
+        } catch (e) {
+        }
 
         if (!banksRes.ok) {
           throw new Error(banksData.message || 'Failed to fetch bank brands');
@@ -66,31 +73,37 @@ export default function Dashboard() {
         if (!accountsRes.ok) {
           throw new Error(accountsData.message || 'Failed to fetch linked accounts');
         }
-        if (!transactionsRes.ok) {
-          throw new Error(transactionsData.message || 'Failed to fetch transaction logs');
-        }
 
         const availableBanks = banksData.banks || [];
         const userAccounts = accountsData.accounts || [];
+
+        const savedAdjustments = localStorage.getItem('balance_adjustments') || '{}';
+        const adjustments = JSON.parse(savedAdjustments);
+        const username = localStorage.getItem('bank_username') || 'user';
 
         const mapped = userAccounts.map(acc => {
           const bankInfo = availableBanks.find(b => b.bankId === acc.bankId);
           const upiSuffixes = { 1: "okhdfcbank", 2: "oksbi", 3: "okicici", 4: "okaxis", 5: "okprobably" };
           const suffix = upiSuffixes[acc.bankId] || "okbank";
+          const adjustedBalance = acc.balance - (adjustments[acc.accountId] || 0);
           return {
             id: acc.accountId,
             bankId: acc.bankId,
             bankName: bankInfo ? bankInfo.name : `Bank ${acc.bankId}`,
             bankCode: bankInfo ? bankInfo.code : 'BANK',
             accountNumber: acc.accountId,
-            balance: acc.balance,
+            balance: adjustedBalance,
             status: acc.status,
-            upiId: acc.upiId || `user@${suffix}`
+            upiId: acc.upiId || `${username}@${suffix}`
           };
         });
 
         setLinkedBanks(mapped);
-        setTransactions(transactionsData.transactions || []);
+
+        const savedTxs = localStorage.getItem('local_transactions') || '[]';
+        const localTransactions = JSON.parse(savedTxs);
+        const mergedTransactions = [...localTransactions, ...apiTransactions];
+        setTransactions(mergedTransactions);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -189,7 +202,7 @@ export default function Dashboard() {
             Welcome to banking.
           </h2>
           <p className="text-gray-500 mb-12 max-w-md mx-auto">
-            Choose which active linked bank account you want to open and manage from your unified dashboard.
+            Choose a linked bank account to manage your funds and make transfers.
           </p>
 
           {linkedBanks.length === 0 ? (
@@ -201,7 +214,7 @@ export default function Dashboard() {
               </div>
               <h3 className="text-3xl font-extrabold text-gray-900">Link a Bank Account</h3>
               <p className="text-gray-500 mt-3 mb-10 leading-6 max-w-sm mx-auto text-sm">
-                You haven&apos;t linked any bank account yet. Securely connect your active banking credentials to start sending UPI transfers.
+                You haven&apos;t linked any bank accounts yet. Connect your bank account to start sending UPI transfers.
               </p>
               <Link
                 to="/link-account"

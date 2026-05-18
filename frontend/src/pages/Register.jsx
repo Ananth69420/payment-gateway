@@ -36,7 +36,8 @@ export default function Register() {
 
       if (!response.ok) throw new Error(data.message || 'Registration failed');
 
-      localStorage.setItem('bank_auth_token', data.token);
+      localStorage.setItem('bank_auth_token', data.accessToken || data.token);
+      localStorage.setItem('bank_username', username);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);

@@ -138,7 +138,7 @@ export default function LinkAccount() {
           Link Bank Account
         </h2>
         <p className="text-gray-500 mb-8 max-w-md">
-          Establish a secure connection with any supported retail bank to authorize instantaneous transfers.
+          Link your bank account to start making instant transfers.
         </p>
 
         {submitError && (
@@ -151,7 +151,7 @@ export default function LinkAccount() {
           <div className="bg-white rounded-[32px] p-10 shadow-xl border border-gray-200 text-center">
             <h3 className="text-2xl font-bold text-gray-900">All banks connected</h3>
             <p className="text-gray-500 mt-2 mb-8 leading-6 text-sm">
-              You have already linked all available mock bank accounts to your current profile.
+              You have already linked all available bank accounts to your profile.
             </p>
             <button
               onClick={() => navigate('/dashboard')}
@@ -198,7 +198,7 @@ export default function LinkAccount() {
                   className="w-full px-4 py-3.5 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563eb] font-medium text-gray-800 placeholder-gray-400"
                 />
                 <span className="text-[11px] text-gray-400 mt-1.5 block">
-                  This secure PIN is required to authorize all payments and transfers made from this account.
+                  This secure PIN is required to authorize payments and transfers from this account.
                 </span>
               </div>
 
