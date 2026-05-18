@@ -1,6 +1,14 @@
 const STATUS_CODES = require('../constant/statusCode');
 const pool = require('../db/connection');
 const { getBalanceBasedOnBank } = require('../utils/helper');
+function generateAccountID() {
+  const digits = '0123456789';
+  let result = '';
+  for (let i = 0; i < 10; i++) {
+    result += digits.charAt(Math.floor(Math.random() * digits.length));
+  }
+  return Number(result);
+}
 
 const getAllAccountController = async (req, res) => {
   const userId = req.userId;
@@ -12,9 +20,9 @@ const getAllAccountController = async (req, res) => {
       success: true,
       accounts: rows,
       message: 'Fetched the all account',
-      handler : "GetAllAccountController"
     });
   } catch (error) {
+    console.error("getAllAccountController : " + error);
     res
       .status(STATUS_CODES.INTERNAL_SERVER_ERROR)
       .json({ success: false, error: error.message });
@@ -32,6 +40,7 @@ const getAccountByIdController = async (req, res) => {
       message: 'Fetched a single account',
     });
   } catch (error) {
+    console.error("getAccountByIdController : " + error);
     res
       .status(STATUS_CODES.INTERNAL_SERVER_ERROR)
       .json({ success: false, error: error.message });
@@ -40,14 +49,20 @@ const getAccountByIdController = async (req, res) => {
 const setAccountController = async (req, res) => {
   const { bankId, pin } = req.body;
   const userId = req.userId;
-  console.log(userId);
 
   // balance will be set automatically based on bank
   const balance = await getBalanceBasedOnBank(bankId);
-
+  const accountNumber = generateAccountID();
+  console.info('ACCOUNT NUMBER : ' + accountNumber);
   try {
-    const query = `INSERT INTO Accounts (userId,bankId,pin,balance) VALUES (?,?,?,?)`;
-    const [rows] = await pool.execute(query, [userId, bankId, pin, balance]);
+    const query = `INSERT INTO Accounts (userId,bankId,pin,balance , accountNumber) VALUES (?,?,?,?,?)`;
+    const [rows] = await pool.execute(query, [
+      userId,
+      bankId,
+      pin,
+      balance,
+      accountNumber,
+    ]);
     return res
       .status(STATUS_CODES.OK)
       .json({ success: true, message: 'Set Account details' });
