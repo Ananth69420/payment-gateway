@@ -6,10 +6,10 @@ import BankCard from '../components/BankCard';
 const formatAccountNumber = (accountNumber, showFull) => {
   const numStr = accountNumber?.toString() || '';
   if (!numStr) return '';
-  
+
   const len = numStr.length;
   let groups = [];
-  
+
   if (len === 9) {
     groups = [3, 3, 3];
   } else if (len === 10) {
@@ -42,7 +42,7 @@ const formatAccountNumber = (accountNumber, showFull) => {
     result.push(targetStr.slice(currentIdx, currentIdx + groupSize));
     currentIdx += groupSize;
   }
-  
+
   return result.join(' ');
 };
 
@@ -54,16 +54,20 @@ export default function Dashboard() {
 
   const [selectedBank, setSelectedBank] = useState(null);
   const [showAccountNumber, setShowAccountNumber] = useState(false);
-  
+
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showTxModal, setShowTxModal] = useState(false);
 
   const [copiedText, setCopiedText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState('All');
-  
+
   const [showBankModal, setShowBankModal] = useState(false);
   const [availableBanks, setAvailableBanks] = useState([]);
+
+  const [showStatementModal, setShowStatementModal] = useState(false);
+  const [statementPreset, setStatementPreset] = useState('today');
+  const [statementError, setStatementError] = useState('');
 
   const handleCopyUpi = (upiString) => {
     navigator.clipboard.writeText(upiString);
@@ -85,11 +89,11 @@ export default function Dashboard() {
       setPinDigits(nextDigits);
       return;
     }
-    
+
     const nextDigits = [...pinDigits];
     nextDigits[index] = cleanVal.slice(-1);
     setPinDigits(nextDigits);
-    
+
     // Auto-focus next input
     if (index < 3) {
       const nextInput = document.getElementById(`pin-digit-${index + 1}`);
@@ -149,6 +153,97 @@ export default function Dashboard() {
     }
   };
 
+  const getStatementDateRange = () => {
+    const now = new Date();
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+    if (statementPreset === 'today') {
+      return { start: todayStart, end: todayEnd };
+    }
+    if (statementPreset === '7days') {
+      const s = new Date(todayStart);
+      s.setDate(s.getDate() - 6);
+      return { start: s, end: todayEnd };
+    }
+    if (statementPreset === '1month') {
+      const s = new Date(todayStart);
+      s.setMonth(s.getMonth() - 1);
+      return { start: s, end: todayEnd };
+    }
+    if (statementPreset === '3months') {
+      const s = new Date(todayStart);
+      s.setMonth(s.getMonth() - 3);
+      return { start: s, end: todayEnd };
+    }
+    if (statementPreset === '6months') {
+      const s = new Date(todayStart);
+      s.setMonth(s.getMonth() - 6);
+      return { start: s, end: todayEnd };
+    }
+    return null;
+  };
+
+  const handleDownloadStatement = () => {
+    setStatementError('');
+    const range = getStatementDateRange();
+    if (!range) {
+      setStatementError('Please select a valid date range.');
+      return;
+    }
+
+    const cleanText = (str) => {
+      if (typeof str !== 'string') return '';
+      return str.replace(/\p{Extended_Pictographic}/gu, '').replace(/\s+/g, ' ').trim();
+    };
+
+    const allTxs = transactions.filter(tx => {
+      if (selectedBank && tx.bankId !== selectedBank.bankId) return false;
+      const txDate = new Date(tx.timestamp || tx.date);
+      return txDate >= range.start && txDate <= range.end;
+    });
+
+    const header = ['Date', 'Transaction ID', 'Bank Account', 'Description', 'Type', 'Sender UPI', 'Receiver UPI', 'Amount (INR)', 'Status'];
+    const rows = allTxs.map(tx => {
+      const bankInfo = linkedBanks.find(b => b.bankId === tx.bankId);
+      const bankLabel = bankInfo ? `${bankInfo.bankName} (****${bankInfo.accountNumber?.toString().slice(-4)})` : `Bank ${tx.bankId}`;
+      
+      const humanType = tx.type === 'Credit' ? 'Received' : 'Sent';
+      const humanStatus = tx.status && tx.status.toLowerCase() === 'failed' ? 'Failed' : 'Success';
+
+      return [
+        new Date(tx.timestamp || tx.date).toLocaleString('en-IN'),
+        tx.transactionId || '',
+        cleanText(bankLabel),
+        cleanText(tx.description || tx.desc || '').replace(/,/g, ' '),
+        humanType,
+        tx.senderUpiId || '',
+        tx.receiverUpiId || '',
+        tx.type === 'Debit' ? `-${parseFloat(tx.amount).toFixed(2)}` : `+${parseFloat(tx.amount).toFixed(2)}`,
+        humanStatus
+      ];
+    });
+
+    const csvContent = [header, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const fromStr = range.start.toISOString().slice(0, 10);
+    const toStr = range.end.toISOString().slice(0, 10);
+    
+    const filename = selectedBank
+      ? `${cleanText(selectedBank.bankName).replace(/\s+/g, '_')}_Statement_${fromStr}_to_${toStr}.csv`
+      : `All_Accounts_Statement_${fromStr}_to_${toStr}.csv`;
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setShowStatementModal(false);
+  };
+
   const navigate = useNavigate();
   const token = localStorage.getItem('bank_auth_token');
 
@@ -187,65 +282,76 @@ export default function Dashboard() {
 
         let apiTransactions = [];
         try {
-          const transactionsRes = await fetch(`${API_BASE_URL}/api/v1/upi/transactions`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          });
-          const transactionsData = await transactionsRes.json();
-          if (transactionsRes.ok) {
-            let rawTransactions = [];
-            if (Array.isArray(transactionsData)) {
-              rawTransactions = transactionsData;
-            } else if (transactionsData) {
-              rawTransactions = transactionsData.transactions || transactionsData.ledger || transactionsData.data || [];
+          const ledgerPromises = userAccounts.map(async (acc) => {
+            try {
+              const res = await fetch(`${API_BASE_URL}/api/v1/ledger/download`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ accountId: acc.accountId })
+              });
+              if (res.ok) {
+                const data = await res.json();
+                return (data.ledger || []).map(tx => ({
+                  ...tx,
+                  accountId: acc.accountId,
+                  bankId: acc.bankId
+                }));
+              }
+            } catch (e) {
+              console.error("Error fetching individual ledger:", e);
             }
-            
-            apiTransactions = rawTransactions.map((tx, idx) => {
-              let bankId = tx.bankId;
-              if (!bankId && tx.accountId) {
-                const matchedAccount = userAccounts.find(acc => acc.accountId === tx.accountId);
-                if (matchedAccount) {
-                  bankId = matchedAccount.bankId;
-                }
-              }
-              if (!bankId) bankId = 1;
+            return [];
+          });
 
-              let type = 'Debit';
-              const rawType = tx.entry_type || tx.type || '';
-              if (rawType.toLowerCase() === 'credit') {
-                type = 'Credit';
-              }
+          const ledgerResults = await Promise.all(ledgerPromises);
+          const rawTransactions = ledgerResults.flat();
 
-              let desc = tx.desc || tx.description || tx.message || '';
-              if (!desc) {
-                desc = type === 'Credit' ? 'Money Received' : 'Money Sent';
+          apiTransactions = rawTransactions.map((tx, idx) => {
+            let bankId = tx.bankId;
+            if (!bankId && tx.accountId) {
+              const matchedAccount = userAccounts.find(acc => acc.accountId === tx.accountId);
+              if (matchedAccount) {
+                bankId = matchedAccount.bankId;
               }
-              
-              let descriptionStr = tx.description || tx.desc || tx.message || '';
-              if (!descriptionStr) {
-                descriptionStr = type === 'Credit'
-                  ? (tx.senderUpiId ? `Received from ${tx.senderUpiId}` : 'Received Funds')
-                  : (tx.receiverUpiId ? `Paid to ${tx.receiverUpiId}` : 'Paid Funds');
-              }
+            }
+            if (!bankId) bankId = 1;
 
-              return {
-                id: tx.ledgerId || tx.transactionId || tx.id || `api-tx-${idx}`,
-                transactionId: tx.transactionId || tx.id || `TXN${idx}`,
-                bankId: bankId,
-                senderUpiId: tx.senderUpiId || 'N/A',
-                receiverUpiId: tx.receiverUpiId || 'N/A',
-                senderAccount: tx.senderAccount || tx.accountId || 'N/A',
-                amount: parseFloat(tx.amount || 0),
-                timestamp: tx.timestamp || tx.date || tx.created_at || new Date().toISOString(),
-                desc: desc,
-                description: descriptionStr,
-                type: type,
-                status: tx.status ? tx.status.toUpperCase() : 'SUCCESS'
-              };
-            });
-          }
+            let type = 'Debit';
+            const rawType = tx.entry_type || tx.type || '';
+            if (rawType.toLowerCase() === 'credit') {
+              type = 'Credit';
+            }
+
+            let desc = tx.desc || tx.description || tx.message || '';
+            if (!desc) {
+              desc = type === 'Credit' ? 'Money Received' : 'Money Sent';
+            }
+
+            let descriptionStr = tx.description || tx.desc || tx.message || '';
+            if (!descriptionStr) {
+              descriptionStr = type === 'Credit'
+                ? (tx.senderUpiId ? `Received from ${tx.senderUpiId}` : 'Received Funds')
+                : (tx.receiverUpiId ? `Paid to ${tx.receiverUpiId}` : 'Paid Funds');
+            }
+
+            return {
+              id: tx.ledgerId || tx.transactionId || tx.id || `api-tx-${idx}`,
+              transactionId: tx.transactionId || tx.id || `TXN${idx}`,
+              bankId: bankId,
+              senderUpiId: tx.senderUpiId || 'N/A',
+              receiverUpiId: tx.receiverUpiId || 'N/A',
+              senderAccount: tx.senderAccount || tx.accountId || 'N/A',
+              amount: parseFloat(tx.amount || 0),
+              timestamp: tx.timestamp || tx.date || tx.created_at || new Date().toISOString(),
+              desc: desc,
+              description: descriptionStr,
+              type: type,
+              status: tx.status ? tx.status.toUpperCase() : 'SUCCESS'
+            };
+          });
         } catch (e) {
           console.error("Error fetching transactions:", e);
         }
@@ -256,7 +362,7 @@ export default function Dashboard() {
 
         const availableBanksFetched = banksData.banks || [];
         setAvailableBanks(availableBanksFetched);
-        
+
         const savedLocal = localStorage.getItem('local_accounts') || '[]';
         const localAccounts = JSON.parse(savedLocal);
 
@@ -300,8 +406,8 @@ export default function Dashboard() {
         const savedTxs = localStorage.getItem('local_transactions') || '[]';
         let localTransactions = JSON.parse(savedTxs);
         const initialLength = localTransactions.length;
-        localTransactions = localTransactions.filter(tx => 
-          !tx.senderUpiId?.includes('okaxis') && 
+        localTransactions = localTransactions.filter(tx =>
+          !tx.senderUpiId?.includes('okaxis') &&
           !tx.receiverUpiId?.includes('okaxis')
         );
         if (localTransactions.length !== initialLength) {
@@ -326,10 +432,10 @@ export default function Dashboard() {
 
   const getBankColor = (bankId) => {
     const colors = {
-      1: "from-blue-700 to-indigo-900", 
-      2: "from-emerald-700 to-teal-900", 
-      3: "from-orange-600 to-red-900", 
-      4: "from-purple-700 to-fuchsia-950", 
+      1: "from-blue-700 to-indigo-900",
+      2: "from-emerald-700 to-teal-900",
+      3: "from-orange-600 to-red-900",
+      4: "from-purple-700 to-fuchsia-950",
     };
     return colors[bankId] || "from-slate-700 to-slate-900";
   };
@@ -356,14 +462,14 @@ export default function Dashboard() {
           <h2 className="text-2xl font-bold text-gray-900">Connection Error</h2>
           <p className="text-gray-500 mt-2 mb-8 text-sm leading-6">{error}</p>
           <div className="space-y-3">
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
               className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white py-3 rounded-xl font-bold transition duration-300"
             >
               Retry Connection
             </button>
-            <button 
-              onClick={handleLogout} 
+            <button
+              onClick={handleLogout}
               className="w-full bg-[#f4f1ea] hover:bg-gray-200 text-gray-800 py-3 rounded-xl font-bold transition duration-300"
             >
               Log Out
@@ -373,6 +479,125 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const renderStatementModal = () => {
+    if (!showStatementModal) return null;
+
+    const cleanText = (str) => {
+      if (typeof str !== 'string') return '';
+      return str.replace(/\p{Extended_Pictographic}/gu, '').replace(/\s+/g, ' ').trim();
+    };
+
+    const range = getStatementDateRange();
+    const matchingTxs = range ? transactions.filter(tx => {
+      if (selectedBank && tx.bankId !== selectedBank.bankId) return false;
+      const txDate = new Date(tx.timestamp || tx.date);
+      return txDate >= range.start && txDate <= range.end;
+    }) : [];
+
+    return (
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+        <div className="bg-white rounded-[36px] p-8 w-full max-w-lg shadow-2xl relative">
+          <button
+            onClick={() => setShowStatementModal(false)}
+            className="absolute top-5 right-5 text-xs font-bold text-gray-400 hover:text-black transition uppercase tracking-wider"
+          >
+            Close
+          </button>
+
+          <p className="uppercase tracking-[0.25em] text-emerald-600 font-bold text-xs">Account Statement</p>
+
+          <h2 className="text-3xl font-black mt-3 text-gray-900 leading-tight">Account Statement</h2>
+
+          <p className="text-gray-500 mt-2 leading-relaxed text-xs">
+            Statement for {selectedBank ? `${cleanText(selectedBank.bankName)} Account` : 'All Accounts'}
+          </p>
+
+          <div className="mt-6">
+            <p className="text-xs font-bold text-gray-700 mb-3">Quick Select Range</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {[
+                { label: 'Today', value: 'today' },
+                { label: 'Last 7 Days', value: '7days' },
+                { label: 'Last 1 Month', value: '1month' },
+                { label: 'Last 3 Months', value: '3months' },
+                { label: 'Last 6 Months', value: '6months' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setStatementPreset(opt.value);
+                    setStatementError('');
+                  }}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition duration-200 ${
+                    statementPreset === opt.value
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-emerald-400 hover:text-emerald-700'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-gray-100 pt-5">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-xs font-bold text-gray-700">Transactions ({matchingTxs.length})</span>
+              {matchingTxs.length > 0 && (
+                <button
+                  onClick={handleDownloadStatement}
+                  className="text-xs text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
+                >
+                  Download CSV
+                </button>
+              )}
+            </div>
+
+            {matchingTxs.length === 0 ? (
+              <div className="py-8 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-gray-100">
+                No transactions found for this period.
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                {matchingTxs.map((tx, idx) => {
+                  const humanType = tx.type === 'Credit' ? 'Received' : 'Sent';
+                  const humanStatus = tx.status && tx.status.toLowerCase() === 'failed' ? 'Failed' : 'Success';
+                  const amtColor = tx.type === 'Credit' ? 'text-green-600' : 'text-gray-900';
+                  const amtPrefix = tx.type === 'Credit' ? '+' : '-';
+                  
+                  return (
+                    <div key={tx.id || idx} className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between text-xs">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <div className="flex items-center gap-1.5 font-bold text-gray-800">
+                          <span className={`w-1.5 h-1.5 rounded-full ${tx.type === 'Credit' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                          <span className="truncate">{cleanText(tx.description || tx.desc || 'Transaction')}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-1 flex items-center gap-2">
+                          <span>{new Date(tx.timestamp || tx.date).toLocaleDateString('en-IN')}</span>
+                          <span>•</span>
+                          <span className="truncate max-w-[120px]">{tx.transactionId || 'TXN'}</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className={`font-black text-sm ${amtColor}`}>
+                          {amtPrefix}₹{parseFloat(tx.amount).toLocaleString('en-IN')}
+                        </span>
+                        <span className={`block text-[9px] font-bold ${humanStatus === 'Failed' ? 'text-red-500' : 'text-gray-400'}`}>
+                          {humanStatus}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (!selectedBank) {
     return (
@@ -407,6 +632,16 @@ export default function Dashboard() {
 >
   Quick Transfer
 </button>
+            <button
+              onClick={() => {
+                setStatementPreset('today');
+                setStatementError('');
+                setShowStatementModal(true);
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold transition shadow-md flex items-center"
+            >
+              <span>Statement</span>
+            </button>
             <button
               onClick={handleLogout}
               className="bg-black hover:bg-gray-800 text-white font-bold px-5 py-2.5 rounded-xl transition"
@@ -511,6 +746,8 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {renderStatementModal()}
       </div>
     );
   }
@@ -519,7 +756,7 @@ export default function Dashboard() {
     if (tx.bankId !== selectedBank.bankId) return false;
     if (filterTab === 'Debit' && tx.type !== 'Debit') return false;
     if (filterTab === 'Credit' && tx.type !== 'Credit') return false;
-    
+
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
       const matchDesc = tx.desc?.toLowerCase().includes(q) || tx.description?.toLowerCase().includes(q);
@@ -567,7 +804,7 @@ export default function Dashboard() {
         <div className="lg:col-span-5 space-y-8">
           <h2 className="text-3xl font-black text-gray-900 tracking-tight flex flex-col md:flex-row md:items-center justify-between gap-4">
             <span>{selectedBank.bankName} Account</span>
-            <span 
+            <span
               onClick={() => handleCopyUpi(selectedBank.upiId)}
               className="text-[11px] bg-blue-50 text-[#2563eb] font-bold px-3.5 py-1.5 rounded-full border border-blue-100 font-mono flex items-center gap-2 cursor-pointer hover:bg-blue-100 transition-all duration-200"
             >
@@ -580,7 +817,7 @@ export default function Dashboard() {
 
           <div className={`bg-gradient-to-br ${getBankColor(selectedBank.bankId)} text-white p-8 rounded-[32px] shadow-2xl h-64 flex flex-col justify-between relative overflow-hidden border border-white/10`}>
             <div className="absolute right-0 top-0 w-36 h-36 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-            
+
             <div>
               <div className="flex justify-between items-start">
                 <div>
@@ -591,7 +828,7 @@ export default function Dashboard() {
                   {selectedBank.bankCode}
                 </div>
               </div>
-              
+
               <div className="mt-8">
                 <span className="text-[10px] uppercase text-white/40 block font-semibold">Current Balance</span>
                 <span className="text-4xl font-black mt-1 block">
@@ -625,7 +862,7 @@ export default function Dashboard() {
 
           <div className="bg-white rounded-3xl p-8 border border-gray-200 shadow-lg space-y-4">
             <h4 className="text-sm uppercase tracking-wider text-gray-400 font-bold mb-2">Quick Actions</h4>
-            
+
             <Link
               to="/upi"
               className="flex items-center justify-between w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white py-3.5 px-6 rounded-xl font-bold transition duration-300 shadow-md"
@@ -649,6 +886,18 @@ export default function Dashboard() {
               <span>Update Account PIN</span>
               <span className="text-lg"></span>
             </button>
+
+            <button
+              onClick={() => {
+                setStatementPreset('today');
+                setStatementError('');
+                setShowStatementModal(true);
+              }}
+              className="flex items-center justify-between w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 px-6 rounded-xl font-bold transition duration-300 shadow-md"
+            >
+              <span>Download Statement</span>
+              <span className="text-lg"></span>
+            </button>
           </div>
         </div>
 
@@ -657,7 +906,7 @@ export default function Dashboard() {
             <h3 className="text-2xl font-black text-gray-900 tracking-tight">
               Recent Ledger
             </h3>
-            
+
             <div className="flex bg-gray-155/60 p-1 rounded-xl border border-gray-200">
               {['All', 'Debit', 'Credit'].map(tab => (
                 <button
@@ -686,7 +935,7 @@ export default function Dashboard() {
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563eb] text-xs font-semibold text-gray-800 placeholder-gray-400"
               />
             </div>
-            
+
             {filteredTransactions.length === 0 ? (
               <div className="p-12 text-center text-gray-500">
                 <svg className="w-12 h-12 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -729,11 +978,11 @@ export default function Dashboard() {
                             </div>
                           </div>
                         </td>
-                        
+
                         <td className="py-4.5 px-6 text-center">
                           <span className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase ${
-                            tx.type === 'Credit' 
-                              ? 'bg-green-50 text-green-700 border border-green-200/50' 
+                            tx.type === 'Credit'
+                              ? 'bg-green-50 text-green-700 border border-green-200/50'
                               : 'bg-red-50 text-red-700 border border-red-200/50'
                           }`}>
                             {tx.type}
@@ -778,13 +1027,13 @@ export default function Dashboard() {
               </div>
 
               <span className="text-xs uppercase tracking-widest text-gray-400 font-extrabold">Transaction Receipt</span>
-              
+
               <h3 className={`text-4xl font-black mt-2 ${
                 selectedTransaction.type === 'Credit' ? 'text-green-600' : 'text-gray-900'
               }`}>
                 {selectedTransaction.type === 'Credit' ? '+' : '-'}₹{parseFloat(selectedTransaction.amount).toLocaleString('en-IN')}
               </h3>
-              
+
               <div className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest uppercase mt-2.5 border border-green-200/50">
                 {selectedTransaction.status || 'SUCCESS'}
               </div>
@@ -975,6 +1224,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {renderStatementModal()}
     </div>
   );
 }

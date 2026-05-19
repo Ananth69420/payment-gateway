@@ -76,62 +76,76 @@ export default function Upi() {
 
         let apiTransactions = [];
         try {
-          const res = await fetch(`${API_BASE_URL}/api/v1/upi/transactions`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          const data = await res.json();
-          if (res.ok) {
-            let rawTransactions = [];
-            if (Array.isArray(data)) {
-              rawTransactions = data;
-            } else if (data) {
-              rawTransactions = data.transactions || data.ledger || data.data || [];
+          const ledgerPromises = activeAccounts.map(async (acc) => {
+            try {
+              const res = await fetch(`${API_BASE_URL}/api/v1/ledger/download`, {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ accountId: acc.accountId })
+              });
+              if (res.ok) {
+                const data = await res.json();
+                return (data.ledger || []).map(tx => ({
+                  ...tx,
+                  accountId: acc.accountId,
+                  bankId: acc.bankId
+                }));
+              }
+            } catch (e) {
+              console.error("Error fetching individual ledger:", e);
             }
-            
-            apiTransactions = rawTransactions.map((tx, idx) => {
-              let bankId = tx.bankId;
-              if (!bankId && tx.accountId) {
-                const matchedAccount = activeAccounts.find(acc => acc.accountId === tx.accountId);
-                if (matchedAccount) {
-                  bankId = matchedAccount.bankId;
-                }
-              }
-              if (!bankId) bankId = 1;
+            return [];
+          });
 
-              let type = 'Debit';
-              const rawType = tx.entry_type || tx.type || '';
-              if (rawType.toLowerCase() === 'credit') {
-                type = 'Credit';
-              }
+          const ledgerResults = await Promise.all(ledgerPromises);
+          const rawTransactions = ledgerResults.flat();
 
-              let desc = tx.desc || tx.description || tx.message || '';
-              if (!desc) {
-                desc = type === 'Credit' ? 'Money Received' : 'Money Sent';
+          apiTransactions = rawTransactions.map((tx, idx) => {
+            let bankId = tx.bankId;
+            if (!bankId && tx.accountId) {
+              const matchedAccount = activeAccounts.find(acc => acc.accountId === tx.accountId);
+              if (matchedAccount) {
+                bankId = matchedAccount.bankId;
               }
-              
-              let descriptionStr = tx.description || tx.desc || tx.message || '';
-              if (!descriptionStr) {
-                descriptionStr = type === 'Credit'
-                  ? (tx.senderUpiId ? `Received from ${tx.senderUpiId}` : 'Received Funds')
-                  : (tx.receiverUpiId ? `Paid to ${tx.receiverUpiId}` : 'Paid Funds');
-              }
+            }
+            if (!bankId) bankId = 1;
 
-              return {
-                id: tx.ledgerId || tx.transactionId || tx.id || `api-tx-${idx}`,
-                transactionId: tx.transactionId || tx.id || `TXN${idx}`,
-                bankId: bankId,
-                senderUpiId: tx.senderUpiId || 'N/A',
-                receiverUpiId: tx.receiverUpiId || 'N/A',
-                senderAccount: tx.senderAccount || tx.accountId || 'N/A',
-                amount: parseFloat(tx.amount || 0),
-                timestamp: tx.timestamp || tx.date || tx.created_at || new Date().toISOString(),
-                desc: desc,
-                description: descriptionStr,
-                type: type,
-                status: tx.status ? tx.status.toUpperCase() : 'SUCCESS'
-              };
-            });
-          }
+            let type = 'Debit';
+            const rawType = tx.entry_type || tx.type || '';
+            if (rawType.toLowerCase() === 'credit') {
+              type = 'Credit';
+            }
+
+            let desc = tx.desc || tx.description || tx.message || '';
+            if (!desc) {
+              desc = type === 'Credit' ? 'Money Received' : 'Money Sent';
+            }
+
+            let descriptionStr = tx.description || tx.desc || tx.message || '';
+            if (!descriptionStr) {
+              descriptionStr = type === 'Credit'
+                ? (tx.senderUpiId ? `Received from ${tx.senderUpiId}` : 'Received Funds')
+                : (tx.receiverUpiId ? `Paid to ${tx.receiverUpiId}` : 'Paid Funds');
+            }
+
+            return {
+              id: tx.ledgerId || tx.transactionId || tx.id || `api-tx-${idx}`,
+              transactionId: tx.transactionId || tx.id || `TXN${idx}`,
+              bankId: bankId,
+              senderUpiId: tx.senderUpiId || 'N/A',
+              receiverUpiId: tx.receiverUpiId || 'N/A',
+              senderAccount: tx.senderAccount || tx.accountId || 'N/A',
+              amount: parseFloat(tx.amount || 0),
+              timestamp: tx.timestamp || tx.date || tx.created_at || new Date().toISOString(),
+              desc: desc,
+              description: descriptionStr,
+              type: type,
+              status: tx.status ? tx.status.toUpperCase() : 'SUCCESS'
+            };
+          });
         } catch (e) {
           console.error("Error fetching transactions:", e);
         }
