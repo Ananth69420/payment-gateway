@@ -4,7 +4,7 @@ const { getBalanceBasedOnBank } = require('../utils/helper');
 function generateAccountID() {
   const digits = '0123456789';
   let result = '';
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 9; i++) {
     result += digits.charAt(Math.floor(Math.random() * digits.length));
   }
   return Number(result);

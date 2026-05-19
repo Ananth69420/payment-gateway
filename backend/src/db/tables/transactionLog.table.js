@@ -7,7 +7,7 @@ async function createTransactionLogTable() {
             transactionId INT,
             STATUS ENUM('success','failed') DEFAULT 'success',
             message VARCHAR(50),
-            FOREIGN KEY (transactionId) REFERENCES Transactions(transactionId) ON DELETE CASCADE,
+            FOREIGN KEY (transactionId) REFERENCES Transactions(transactionId) ON DELETE CASCADE
         )
     `;
   await pool.query(query);

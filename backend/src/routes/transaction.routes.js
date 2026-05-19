@@ -5,6 +5,6 @@ const {
 } = require('../controller/transaction.controller');
 const router = express.Router();
 
-router.get('/', authMiddleware, makeTransactionController); // make a transaction
+router.post('/', authMiddleware, makeTransactionController); // make a transaction
 
 module.exports = router;

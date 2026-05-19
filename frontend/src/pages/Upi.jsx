@@ -6,6 +6,7 @@ export default function Upi() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [availableBanks, setAvailableBanks] = useState([]);
 
   const [recentPeople, setRecentPeople] = useState([]);
   const [allTransactions, setAllTransactions] = useState([]);
@@ -45,6 +46,8 @@ export default function Upi() {
       try {
         setLoading(true);
         let activeAccounts = [];
+        let availableBanksFetched = [];
+        
         try {
           const res = await fetch(`${API_BASE_URL}/api/v1/account`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -52,6 +55,18 @@ export default function Upi() {
           const data = await res.json();
           if (res.ok) {
             activeAccounts = data.accounts || [];
+          }
+        } catch (e) {
+        }
+
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/v1/banks`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (res.ok) {
+            availableBanksFetched = data.banks || [];
+            setAvailableBanks(availableBanksFetched);
           }
         } catch (e) {
         }
@@ -66,41 +81,127 @@ export default function Upi() {
           });
           const data = await res.json();
           if (res.ok) {
-            apiTransactions = data.transactions || [];
+            let rawTransactions = [];
+            if (Array.isArray(data)) {
+              rawTransactions = data;
+            } else if (data) {
+              rawTransactions = data.transactions || data.ledger || data.data || [];
+            }
+            
+            apiTransactions = rawTransactions.map((tx, idx) => {
+              let bankId = tx.bankId;
+              if (!bankId && tx.accountId) {
+                const matchedAccount = activeAccounts.find(acc => acc.accountId === tx.accountId);
+                if (matchedAccount) {
+                  bankId = matchedAccount.bankId;
+                }
+              }
+              if (!bankId) bankId = 1;
+
+              let type = 'Debit';
+              const rawType = tx.entry_type || tx.type || '';
+              if (rawType.toLowerCase() === 'credit') {
+                type = 'Credit';
+              }
+
+              let desc = tx.desc || tx.description || tx.message || '';
+              if (!desc) {
+                desc = type === 'Credit' ? 'Money Received' : 'Money Sent';
+              }
+              
+              let descriptionStr = tx.description || tx.desc || tx.message || '';
+              if (!descriptionStr) {
+                descriptionStr = type === 'Credit'
+                  ? (tx.senderUpiId ? `Received from ${tx.senderUpiId}` : 'Received Funds')
+                  : (tx.receiverUpiId ? `Paid to ${tx.receiverUpiId}` : 'Paid Funds');
+              }
+
+              return {
+                id: tx.ledgerId || tx.transactionId || tx.id || `api-tx-${idx}`,
+                transactionId: tx.transactionId || tx.id || `TXN${idx}`,
+                bankId: bankId,
+                senderUpiId: tx.senderUpiId || 'N/A',
+                receiverUpiId: tx.receiverUpiId || 'N/A',
+                senderAccount: tx.senderAccount || tx.accountId || 'N/A',
+                amount: parseFloat(tx.amount || 0),
+                timestamp: tx.timestamp || tx.date || tx.created_at || new Date().toISOString(),
+                desc: desc,
+                description: descriptionStr,
+                type: type,
+                status: tx.status ? tx.status.toUpperCase() : 'SUCCESS'
+              };
+            });
           }
         } catch (e) {
+          console.error("Error fetching transactions:", e);
         }
 
         const savedTxs = localStorage.getItem('local_transactions') || '[]';
-        const localTransactions = JSON.parse(savedTxs);
+        let localTransactions = JSON.parse(savedTxs);
+        const initialLength = localTransactions.length;
+        localTransactions = localTransactions.filter(tx => 
+          !tx.senderUpiId?.includes('okaxis') && 
+          !tx.receiverUpiId?.includes('okaxis')
+        );
+        if (localTransactions.length !== initialLength) {
+          localStorage.setItem('local_transactions', JSON.stringify(localTransactions));
+        }
         const combinedTxs = [...localTransactions, ...apiTransactions];
         setAllTransactions(combinedTxs);
         
-        const uniqueRecipients = [];
-        const checkedUpiIds = new Set();
-        
-        for (const tx of combinedTxs) {
-          if (tx.receiverUpiId && !checkedUpiIds.has(tx.receiverUpiId)) {
-            checkedUpiIds.add(tx.receiverUpiId);
-            const namePart = tx.receiverUpiId.split('@')[0];
-            const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-            uniqueRecipients.push({
-              upiId: tx.receiverUpiId,
-              name: displayName,
-              initial: displayName.charAt(0).toUpperCase()
+        let apiBeneficiaries = [];
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/v1/beneficiary`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (res.ok) {
+            const rawBeneficiaries = data.beneficiaries || data.data || [];
+            apiBeneficiaries = rawBeneficiaries.map(b => {
+              const upiId = b.upiId || b.upi || b.beneficiaryUpiId || '';
+              const name = b.name || b.beneficiaryName || upiId.split('@')[0];
+              const displayName = name.charAt(0).toUpperCase() + name.slice(1);
+              return {
+                upiId: upiId,
+                name: displayName,
+                initial: displayName.charAt(0).toUpperCase()
+              };
             });
           }
-          if (uniqueRecipients.length >= 8) break;
+        } catch (e) {
+          console.log("Beneficiary API not active yet, using transaction history fallback.");
         }
-        setRecentPeople(uniqueRecipients);
+
+        if (apiBeneficiaries.length > 0) {
+          setRecentPeople(apiBeneficiaries.slice(0, 8));
+        } else {
+          const uniqueRecipients = [];
+          const checkedUpiIds = new Set();
+          
+          for (const tx of combinedTxs) {
+            if (tx.receiverUpiId && !checkedUpiIds.has(tx.receiverUpiId)) {
+              checkedUpiIds.add(tx.receiverUpiId);
+              const namePart = tx.receiverUpiId.split('@')[0];
+              const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+              uniqueRecipients.push({
+                upiId: tx.receiverUpiId,
+                name: displayName,
+                initial: displayName.charAt(0).toUpperCase()
+              });
+            }
+            if (uniqueRecipients.length >= 8) break;
+          }
+          setRecentPeople(uniqueRecipients);
+        }
 
         const savedAdjustments = localStorage.getItem('balance_adjustments') || '{}';
         const adjustments = JSON.parse(savedAdjustments);
         const username = localStorage.getItem('bank_username') || 'user';
-        const upiSuffixes = { 1: "okhdfcbank", 2: "oksbi", 3: "okicici", 4: "okaxis", 5: "okprobably" };
 
         const mappedApi = activeAccounts.map(acc => {
-          const suffix = upiSuffixes[acc.bankId] || "okbank";
+          const bankInfo = availableBanksFetched.find(b => b.bankId === acc.bankId);
+          const bankCodeLower = bankInfo ? bankInfo.code.toLowerCase() : 'bank';
+          const suffix = `prob${bankCodeLower}bank`;
           const adjustedBalance = acc.balance - (adjustments[acc.accountId] || 0);
           return {
             ...acc,
@@ -160,6 +261,13 @@ export default function Upi() {
       return;
     }
 
+    const cleanedReceiver = receiverUpiId.trim().toLowerCase();
+    const isSelfTransfer = accounts.some(acc => acc.upiId && acc.upiId.toLowerCase() === cleanedReceiver);
+    if (isSelfTransfer) {
+      setSubmitError('Self-transfer is not allowed. You cannot send money to your own linked bank accounts.');
+      return;
+    }
+
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setSubmitError('Please enter a valid positive transfer amount');
@@ -187,71 +295,39 @@ export default function Upi() {
       let transactionData = null;
 
       try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/upi/transfer`, {
+        const senderUpiHandle = selectedAccount ? selectedAccount.upiId : accounts[0]?.upiId;
+        const res = await fetch(`${API_BASE_URL}/api/v1/transaction`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            senderAccountId: selectedAccountId,
-            receiverUpiId,
-            amount: parseFloat(amount),
-            pin: parseInt(pin),
-            description: description || `UPI payment to ${receiverUpiId}`
+            senderUpiHandle,
+            receiverUpiHandle: receiverUpiId,
+            amount: parseFloat(amount)
           })
         });
 
         const data = await res.json();
-        if (res.ok) {
-          transactionData = data.transaction;
+        if (res.ok && data.success) {
+          transactionData = {
+            transactionId: 'TXN' + Math.floor(Math.random() * 1000000000000),
+            receiverUpiId,
+            senderUpiId: senderUpiHandle,
+            amount: parseFloat(amount),
+            bankId: selectedAccount ? selectedAccount.bankId : 1,
+            senderAccount: selectedAccountId.toString(),
+            timestamp: new Date().toISOString(),
+            desc: description || `UPI payment to ${receiverUpiId}`
+          };
+          
+          setAllTransactions(prev => [transactionData, ...prev]);
+        } else {
+          throw new Error(data.message || 'Payment failed');
         }
       } catch (e) {
-      }
-
-      if (!transactionData) {
-        const parsedAmount = parseFloat(amount);
-        const savedAdjustments = localStorage.getItem('balance_adjustments') || '{}';
-        const adjustments = JSON.parse(savedAdjustments);
-        adjustments[selectedAccountId] = (adjustments[selectedAccountId] || 0) + parsedAmount;
-        localStorage.setItem('balance_adjustments', JSON.stringify(adjustments));
-
-        const username = localStorage.getItem('bank_username') || 'user';
-        const bankSuffixes = { 1: "okhdfcbank", 2: "oksbi", 3: "okicici", 4: "okaxis", 5: "okprobably" };
-        const suffix = bankSuffixes[selectedAccount ? selectedAccount.bankId : 1] || "okbank";
-        const senderUpiId = `${username}@${suffix}`;
-
-        transactionData = {
-          transactionId: 'TXN' + Math.floor(Math.random() * 1000000000000),
-          receiverUpiId,
-          senderUpiId,
-          amount: parsedAmount,
-          bankId: selectedAccount ? selectedAccount.bankId : 1,
-          senderAccount: selectedAccountId.toString(),
-          timestamp: new Date().toISOString(),
-          desc: description || `UPI payment to ${receiverUpiId}`
-        };
-
-        const savedTxs = localStorage.getItem('local_transactions') || '[]';
-        const txList = JSON.parse(savedTxs);
-        const newLocalTx = {
-          id: transactionData.transactionId,
-          bankId: transactionData.bankId,
-          type: 'Debit',
-          desc: transactionData.desc,
-          timestamp: transactionData.timestamp,
-          amount: transactionData.amount,
-          status: 'SUCCESS',
-          transactionId: transactionData.transactionId,
-          senderUpiId: transactionData.senderUpiId,
-          receiverUpiId: transactionData.receiverUpiId,
-          senderAccount: transactionData.senderAccount
-        };
-        txList.unshift(newLocalTx);
-        localStorage.setItem('local_transactions', JSON.stringify(txList));
-        setAllTransactions(prev => [newLocalTx, ...prev]);
-      } else {
-        setAllTransactions(prev => [transactionData, ...prev]);
+        throw e;
       }
 
       setSuccessReceipt(transactionData);
@@ -265,14 +341,8 @@ export default function Upi() {
   };
 
   const getBankName = (bankId) => {
-    const banks = {
-      1: "HDFC Bank",
-      2: "State Bank of India",
-      3: "ICICI Bank",
-      4: "Axis Bank",
-      5: "Probably A Bank"
-    };
-    return banks[bankId] || `Bank ${bankId}`;
+    const bank = availableBanks.find(b => b.bankId === bankId);
+    return bank ? bank.name : `Bank ${bankId}`;
   };
 
   if (loading) {

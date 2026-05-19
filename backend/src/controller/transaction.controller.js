@@ -37,6 +37,21 @@ const makeTransactionController = async (req, res) => {
         message: 'Sender UPI Id or Reciever UPI Id is invalid or missing',
       });
     }
+
+    if (!senderAccountId) {
+      return res.status(STATUS_CODES.BAD_REQUEST).json({
+        success: false,
+        message: 'Sender account not found for this UPI handle',
+      });
+    }
+
+    if (!receiverAccountId) {
+      return res.status(STATUS_CODES.BAD_REQUEST).json({
+        success: false,
+        message: 'Recipient UPI ID not found. Please check and try again.',
+      });
+    }
+
     await connection.query('START TRANSACTION');
     // deduct money
     await connection.execute(
@@ -83,7 +98,7 @@ const makeTransactionController = async (req, res) => {
     (senderId, receiverId, amount, STATUS)
     VALUES (?, ?, ?, ?)
   `,
-      [senderAccountId, receiverAccountId, amount, 'failed'],
+      [senderAccountId || null, receiverAccountId || null, amount, 'failed'],
     );
 
     const transactionId = transactionRows.insertId;

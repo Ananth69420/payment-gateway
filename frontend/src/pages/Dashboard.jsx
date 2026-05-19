@@ -3,6 +3,49 @@ import { useNavigate, Link } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import BankCard from '../components/BankCard';
 
+const formatAccountNumber = (accountNumber, showFull) => {
+  const numStr = accountNumber?.toString() || '';
+  if (!numStr) return '';
+  
+  const len = numStr.length;
+  let groups = [];
+  
+  if (len === 9) {
+    groups = [3, 3, 3];
+  } else if (len === 10) {
+    groups = [3, 3, 4];
+  } else if (len === 11) {
+    groups = [3, 4, 4];
+  } else if (len === 12) {
+    groups = [4, 4, 4];
+  } else {
+    // Default group by 4
+    for (let i = 0; i < len; i += 4) {
+      groups.push(Math.min(4, len - i));
+    }
+  }
+
+  let targetStr = '';
+  if (showFull) {
+    targetStr = numStr;
+  } else {
+    const visibleStartIdx = Math.max(0, len - 4);
+    const maskedPart = '*'.repeat(visibleStartIdx);
+    const visiblePart = numStr.slice(visibleStartIdx);
+    targetStr = maskedPart + visiblePart;
+  }
+
+  let result = [];
+  let currentIdx = 0;
+  for (const groupSize of groups) {
+    if (currentIdx >= len) break;
+    result.push(targetStr.slice(currentIdx, currentIdx + groupSize));
+    currentIdx += groupSize;
+  }
+  
+  return result.join(' ');
+};
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -10,6 +53,7 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
 
   const [selectedBank, setSelectedBank] = useState(null);
+  const [showAccountNumber, setShowAccountNumber] = useState(false);
   
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [showTxModal, setShowTxModal] = useState(false);
@@ -25,6 +69,84 @@ export default function Dashboard() {
     navigator.clipboard.writeText(upiString);
     setCopiedText(upiString);
     setTimeout(() => setCopiedText(''), 1500);
+  };
+
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
+  const [updatingPin, setUpdatingPin] = useState(false);
+  const [updateError, setUpdateError] = useState('');
+  const [updateSuccess, setUpdateSuccess] = useState('');
+
+  const handleDigitChange = (index, value) => {
+    const cleanVal = value.replace(/\D/g, '');
+    if (!cleanVal) {
+      const nextDigits = [...pinDigits];
+      nextDigits[index] = '';
+      setPinDigits(nextDigits);
+      return;
+    }
+    
+    const nextDigits = [...pinDigits];
+    nextDigits[index] = cleanVal.slice(-1);
+    setPinDigits(nextDigits);
+    
+    // Auto-focus next input
+    if (index < 3) {
+      const nextInput = document.getElementById(`pin-digit-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !pinDigits[index] && index > 0) {
+      const prevInput = document.getElementById(`pin-digit-${index - 1}`);
+      if (prevInput) {
+        prevInput.focus();
+        // Clear previous input
+        const nextDigits = [...pinDigits];
+        nextDigits[index - 1] = '';
+        setPinDigits(nextDigits);
+      }
+    }
+  };
+
+  const handleUpdatePinSubmit = async (e) => {
+    e.preventDefault();
+    setUpdateError('');
+    setUpdateSuccess('');
+
+    const newPin = pinDigits.join('');
+    if (!/^\d{4}$/.test(newPin)) {
+      setUpdateError('Please enter a valid 4-digit PIN');
+      return;
+    }
+
+    try {
+      setUpdatingPin(true);
+      const res = await fetch(`${API_BASE_URL}/api/v1/account/update-pin`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ pin: parseInt(newPin) })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUpdateSuccess('Account PIN updated successfully!');
+        setPinDigits(['', '', '', '']);
+        setTimeout(() => {
+          setShowPinModal(false);
+          setUpdateSuccess('');
+        }, 2000);
+      } else {
+        throw new Error(data.message || 'Failed to update PIN');
+      }
+    } catch (err) {
+      setUpdateError(err.message);
+    } finally {
+      setUpdatingPin(false);
+    }
   };
 
   const navigate = useNavigate();
@@ -73,9 +195,59 @@ export default function Dashboard() {
           });
           const transactionsData = await transactionsRes.json();
           if (transactionsRes.ok) {
-            apiTransactions = transactionsData.transactions || [];
+            let rawTransactions = [];
+            if (Array.isArray(transactionsData)) {
+              rawTransactions = transactionsData;
+            } else if (transactionsData) {
+              rawTransactions = transactionsData.transactions || transactionsData.ledger || transactionsData.data || [];
+            }
+            
+            apiTransactions = rawTransactions.map((tx, idx) => {
+              let bankId = tx.bankId;
+              if (!bankId && tx.accountId) {
+                const matchedAccount = userAccounts.find(acc => acc.accountId === tx.accountId);
+                if (matchedAccount) {
+                  bankId = matchedAccount.bankId;
+                }
+              }
+              if (!bankId) bankId = 1;
+
+              let type = 'Debit';
+              const rawType = tx.entry_type || tx.type || '';
+              if (rawType.toLowerCase() === 'credit') {
+                type = 'Credit';
+              }
+
+              let desc = tx.desc || tx.description || tx.message || '';
+              if (!desc) {
+                desc = type === 'Credit' ? 'Money Received' : 'Money Sent';
+              }
+              
+              let descriptionStr = tx.description || tx.desc || tx.message || '';
+              if (!descriptionStr) {
+                descriptionStr = type === 'Credit'
+                  ? (tx.senderUpiId ? `Received from ${tx.senderUpiId}` : 'Received Funds')
+                  : (tx.receiverUpiId ? `Paid to ${tx.receiverUpiId}` : 'Paid Funds');
+              }
+
+              return {
+                id: tx.ledgerId || tx.transactionId || tx.id || `api-tx-${idx}`,
+                transactionId: tx.transactionId || tx.id || `TXN${idx}`,
+                bankId: bankId,
+                senderUpiId: tx.senderUpiId || 'N/A',
+                receiverUpiId: tx.receiverUpiId || 'N/A',
+                senderAccount: tx.senderAccount || tx.accountId || 'N/A',
+                amount: parseFloat(tx.amount || 0),
+                timestamp: tx.timestamp || tx.date || tx.created_at || new Date().toISOString(),
+                desc: desc,
+                description: descriptionStr,
+                type: type,
+                status: tx.status ? tx.status.toUpperCase() : 'SUCCESS'
+              };
+            });
           }
         } catch (e) {
+          console.error("Error fetching transactions:", e);
         }
 
         if (!banksRes.ok) {
@@ -94,15 +266,15 @@ export default function Dashboard() {
 
         const mappedApi = userAccounts.map(acc => {
           const bankInfo = availableBanksFetched.find(b => b.bankId === acc.bankId);
-          const upiSuffixes = { 1: "okhdfcbank", 2: "oksbi", 3: "okicici", 4: "okaxis", 5: "okprobably" };
-          const suffix = upiSuffixes[acc.bankId] || "okbank";
+          const bankCodeLower = bankInfo ? bankInfo.code.toLowerCase() : 'bank';
+          const suffix = `prob${bankCodeLower}bank`;
           const adjustedBalance = acc.balance - (adjustments[acc.accountId] || 0);
           return {
             id: acc.accountId,
             bankId: acc.bankId,
             bankName: bankInfo ? bankInfo.name : `Bank ${acc.bankId}`,
             bankCode: bankInfo ? bankInfo.code : 'BANK',
-            accountNumber: acc.accountId,
+            accountNumber: acc.accountNumber || acc.accountId,
             balance: adjustedBalance,
             status: acc.status,
             upiId: acc.upiId || `${username}@${suffix}`
@@ -126,7 +298,15 @@ export default function Dashboard() {
         setLinkedBanks([...mappedApi, ...mappedLocal]);
 
         const savedTxs = localStorage.getItem('local_transactions') || '[]';
-        const localTransactions = JSON.parse(savedTxs);
+        let localTransactions = JSON.parse(savedTxs);
+        const initialLength = localTransactions.length;
+        localTransactions = localTransactions.filter(tx => 
+          !tx.senderUpiId?.includes('okaxis') && 
+          !tx.receiverUpiId?.includes('okaxis')
+        );
+        if (localTransactions.length !== initialLength) {
+          localStorage.setItem('local_transactions', JSON.stringify(localTransactions));
+        }
         const mergedTransactions = [...localTransactions, ...apiTransactions];
         setTransactions(mergedTransactions);
       } catch (err) {
@@ -421,11 +601,24 @@ export default function Dashboard() {
             </div>
 
             <div className="flex justify-between items-end border-t border-white/10 pt-4 mt-2">
-              <span className="font-mono text-sm tracking-widest text-white/70">
-                **** **** **** {selectedBank.accountNumber?.toString().slice(-4)}
+              <span className="font-mono text-[15px] font-semibold text-white/85">
+                {formatAccountNumber(selectedBank.accountNumber, showAccountNumber)}
               </span>
-              <div className="w-10 h-7 bg-white/20 rounded-md flex items-center justify-center text-[8px] font-bold text-white/60">
-                CHIP
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowAccountNumber(!showAccountNumber);
+                  }}
+                  className="text-white/80 hover:text-white transition cursor-pointer text-[10px] bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-lg border border-white/10 font-bold tracking-wider uppercase focus:outline-none"
+                  title={showAccountNumber ? "Hide Account Number" : "Show Account Number"}
+                >
+                  {showAccountNumber ? '🙈 Hide' : '👁️ Show'}
+                </button>
+                <div className="w-10 h-7 bg-white/20 rounded-md flex items-center justify-center text-[8px] font-bold text-white/60">
+                  CHIP
+                </div>
               </div>
             </div>
           </div>
@@ -448,6 +641,14 @@ export default function Dashboard() {
               <span>Link New Bank Account</span>
               <span className="text-lg"></span>
             </Link>
+
+            <button
+              onClick={() => setShowPinModal(true)}
+              className="flex items-center justify-between w-full bg-amber-500 hover:bg-amber-600 text-white py-3.5 px-6 rounded-xl font-bold transition duration-300 shadow-md"
+            >
+              <span>Update Account PIN</span>
+              <span className="text-lg"></span>
+            </button>
           </div>
         </div>
 
@@ -696,6 +897,81 @@ export default function Dashboard() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIN UPDATE MODAL */}
+      {showPinModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-[36px] p-8 w-full max-w-md shadow-2xl relative">
+            <button
+              onClick={() => {
+                setShowPinModal(false);
+                setPinDigits(['', '', '', '']);
+                setUpdateError('');
+                setUpdateSuccess('');
+              }}
+              className="absolute top-5 right-5 text-2xl text-gray-400 hover:text-black transition"
+            >
+              ✕
+            </button>
+
+            <p className="uppercase tracking-[0.25em] text-[#2563eb] font-bold text-xs">
+              Security Settings
+            </p>
+
+            <h2 className="text-3xl font-black mt-3 text-gray-900 leading-tight">
+              Update Account PIN
+            </h2>
+
+            <p className="text-gray-500 mt-2 leading-relaxed text-xs">
+              This will update the UPI transaction PIN for all accounts associated with your user.
+            </p>
+
+            {updateError && (
+              <div className="mt-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl font-semibold text-xs">
+                {updateError}
+              </div>
+            )}
+
+            {updateSuccess && (
+              <div className="mt-4 bg-emerald-50 border border-emerald-200 text-emerald-600 px-4 py-3 rounded-xl font-semibold text-xs">
+                {updateSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdatePinSubmit} className="mt-6 space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-3 text-center">
+                  New 4-Digit Secure PIN
+                </label>
+                <div className="flex justify-center gap-3">
+                  {pinDigits.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`pin-digit-${index}`}
+                      type="password"
+                      inputMode="numeric"
+                      required
+                      value={digit}
+                      onChange={(e) => handleDigitChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      maxLength="1"
+                      className="w-12 h-14 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#2563eb] focus:ring-1 focus:ring-[#2563eb] font-black text-center text-xl transition-all duration-100"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={updatingPin}
+                className="w-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white py-3.5 rounded-xl font-bold transition duration-300 shadow-md mt-4 disabled:opacity-50"
+              >
+                {updatingPin ? 'Updating PIN...' : 'Confirm Update'}
+              </button>
+            </form>
           </div>
         </div>
       )}
