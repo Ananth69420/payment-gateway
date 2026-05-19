@@ -83,6 +83,68 @@ const makeTransactionController = async (req, res) => {
       transactionId,
       'Successful',
     ]);
+
+    // Get updated sender balance
+    const [senderBalanceRows] = await connection.execute(
+      `
+  SELECT balance
+  FROM Accounts
+  WHERE accountId = ?
+  `,
+      [senderAccountId],
+    );
+
+    const senderUpdatedBalance = senderBalanceRows[0].balance;
+
+    // Get updated receiver balance
+    const [receiverBalanceRows] = await connection.execute(
+      `
+  SELECT balance
+  FROM Accounts
+  WHERE accountId = ?
+  `,
+      [receiverAccountId],
+    );
+
+    const receiverUpdatedBalance = receiverBalanceRows[0].balance;
+
+    // Sender ledger entry
+    await connection.execute(
+      `
+  INSERT INTO Ledger
+  (
+    accountId,
+    transactionId,
+    entry_type,
+    amount,
+    balance_after
+  )
+  VALUES (?, ?, ?, ?, ?)
+  `,
+      [senderAccountId, transactionId, 'debit', amount, senderUpdatedBalance],
+    );
+
+    // Receiver ledger entry
+    await connection.execute(
+      `
+  INSERT INTO Ledger
+  (
+    accountId,
+    transactionId,
+    entry_type,
+    amount,
+    balance_after
+  )
+  VALUES (?, ?, ?, ?, ?)
+  `,
+      [
+        receiverAccountId,
+        transactionId,
+        'credit',
+        amount,
+        receiverUpdatedBalance,
+      ],
+    );
     await connection.query('COMMIT');
 
     return res.status(STATUS_CODES.OK).json({
