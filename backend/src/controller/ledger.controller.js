@@ -1,7 +1,7 @@
-const getLedgerController = (req, res) => {
-  const {accountId} = req.body;
+const getLedgerController = async (req, res) => {
+  const { accountId } = req.body;
 
-    try {
+  try {
     const query = `SELECT * FROM Ledger WHERE accountId = ?`;
     const [rows] = await pool.execute(query, [accountId]);
     res
