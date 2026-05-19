@@ -614,7 +614,7 @@ export default function Dashboard() {
                   className="text-white/80 hover:text-white transition cursor-pointer text-[10px] bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-lg border border-white/10 font-bold tracking-wider uppercase focus:outline-none"
                   title={showAccountNumber ? "Hide Account Number" : "Show Account Number"}
                 >
-                  {showAccountNumber ? '🙈 Hide' : '👁️ Show'}
+                  {showAccountNumber ? 'Hide' : 'Show'}
                 </button>
                 <div className="w-10 h-7 bg-white/20 rounded-md flex items-center justify-center text-[8px] font-bold text-white/60">
                   CHIP
