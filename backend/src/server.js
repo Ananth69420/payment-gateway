@@ -6,17 +6,19 @@ const bankRoutes = require('./routes/bank.routes');
 const userRoutes = require('./routes/user.routes');
 const accountRoutes = require('./routes/account.routes');
 const upiRoutes = require('./routes/upi.routes');
+const transactionRoutes = require('./routes/transaction.routes');
 
 const PORT = process.env.PORT || 5000;
 const app = express();
 
-app.use(cors())
+app.use(cors());
 app.use(express.json());
 
 app.use('/api/v1/banks', bankRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/account', accountRoutes);
 app.use('/api/v1/upi', upiRoutes);
+app.use('/api/v1/transaction', transactionRoutes);
 
 async function startServer() {
   try {
